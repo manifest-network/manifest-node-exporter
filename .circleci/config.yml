@@ -27,7 +27,7 @@ jobs:
             key: *go_mod_cache_key
       - run: make coverage
       - codecov/upload:
-          file: /tmp/manifest-node-exporter-coverage/coverage-merged.out
+          files: /tmp/manifest-node-exporter-coverage/coverage-merged.out
       - run: rm coverage.html
       - go/install-goreleaser:
           version: *goreleaser_version
