@@ -149,6 +149,7 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 		parseErr := status.Errorf(codes.Internal, "failed to parse amount '%s' for denom '%s': %v", coin.Amount, coin.Denom, err)
 		slog.Warn("Failed to parse total supply amount", "denom", coin.Denom, "amount", coin.Amount, "error", err)
 		reportInvalidMetric(ch, c.totalSupplyDesc, parseErr)
+		return
 	}
 
 	metric, err := prometheus.NewConstMetric(

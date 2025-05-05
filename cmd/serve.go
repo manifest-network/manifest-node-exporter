@@ -64,7 +64,7 @@ var serveCmd = &cobra.Command{
 			grpcCollectors = []prometheus.Collector{} // Ensure slice is not nil
 		}
 
-		allCollectors := append(grpcCollectors)
+		allCollectors := grpcCollectors
 
 		for _, c := range allCollectors {
 			if err := prometheus.Register(c); err != nil {

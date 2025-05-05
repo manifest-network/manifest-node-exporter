@@ -2,8 +2,8 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"google.golang.org/grpc"
@@ -24,7 +24,10 @@ type GRPCClient struct {
 
 func NewGRPCClient(ctx context.Context, address string, insecure bool) (*GRPCClient, error) {
 	slog.Info("Initializing gRPC client pool...")
-	conn := dial(ctx, address, insecure)
+	conn, err := dial(ctx, address, insecure)
+	if err != nil {
+		return nil, fmt.Errorf("unable to dial: %w", err)
+	}
 
 	return &GRPCClient{
 		Ctx:  ctx,
@@ -32,7 +35,7 @@ func NewGRPCClient(ctx context.Context, address string, insecure bool) (*GRPCCli
 	}, nil
 }
 
-func dial(ctx context.Context, address string, insecure bool) *grpc.ClientConn {
+func dial(ctx context.Context, address string, insecure bool) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithKeepaliveParams(keepaliveParams))
 	if insecure {
@@ -44,9 +47,8 @@ func dial(ctx context.Context, address string, insecure bool) *grpc.ClientConn {
 
 	conn, err := grpc.DialContext(ctx, address, opts...)
 	if err != nil {
-		slog.Error("Failed to connect", "error", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("unable to dial context: %w", err)
 	}
 
-	return conn
+	return conn, nil
 }
