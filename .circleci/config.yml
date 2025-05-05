@@ -11,23 +11,21 @@ orbs:
 
 jobs:
   build:
-    executor:
-      name: ubuntu-2204
-      machine:
-        image: ubuntu-2204:current
+    machine:
+      image: ubuntu-2204:current
     resource_class: large
     steps:
       - checkout
       - go/install:
           version: *go_version
-      - go/load-cache:
+      - go/load-mod-cache:
             key: *go_mod_cache_key
       - go/mod-download
-      - go/save-cache:
+      - go/save-mod-cache:
             key: *go_mod_cache_key
       - run: make coverage
       - codecov/upload:
-          file: /tmp/manifest-node-exporter-coverage/coverage-merged.out
+          files: /tmp/manifest-node-exporter-coverage/coverage-merged.out
       - run: rm coverage.html
       - go/install-goreleaser:
           version: *goreleaser_version
