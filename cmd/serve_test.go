@@ -3,9 +3,10 @@ package cmd_test
 import (
 	"testing"
 
-	"github.com/liftedinit/manifest-node-exporter/cmd"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
+
+	"github.com/liftedinit/manifest-node-exporter/cmd"
 )
 
 func TestInvalidAddress(t *testing.T) {

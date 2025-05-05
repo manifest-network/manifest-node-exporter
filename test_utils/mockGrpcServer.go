@@ -3,7 +3,7 @@ package test_utils
 import (
 	"log"
 
-	"cosmossdk.io/api/cosmos/bank/v1beta1"
+	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )

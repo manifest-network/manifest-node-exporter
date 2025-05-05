@@ -3,10 +3,11 @@ package grpc
 import (
 	"log/slog"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 )
 
 func reportUpMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, value float64) {

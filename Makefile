@@ -68,22 +68,22 @@ docker-down:
 
 ####  Linting  ####
 golangci_lint_cmd=golangci-lint
-golangci_version=v1.61.0
+golangci_version=v2.1.6
 
 lint:
 	@echo "--> Running linter"
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
 	@$(golangci_lint_cmd) run ./... --timeout 15m
 
 lint-fix:
 	@echo "--> Running linter and fixing issues"
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
 	@$(golangci_lint_cmd) run ./... --fix --timeout 15m
 
 .PHONY: lint lint-fix
 
 #### FORMAT ####
-goimports_version=v0.26.0
+goimports_version=v0.32.0
 
 format: ## Run formatter (goimports)
 	@echo "--> Running goimports"

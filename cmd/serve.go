@@ -10,10 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/grpc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg"
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/grpc"
 )
 
 // serveCmd represents the serve command
