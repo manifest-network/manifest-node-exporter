@@ -41,19 +41,19 @@ func NewDenomInfoCollector(client *client.GRPCClient, denom string) *DenomInfoCo
 		initialError: initialError,
 		denom:        denom,
 		denomInfoDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("yaci", "tokenomics", "denom_info"),
+			prometheus.BuildFQName("manifest", "tokenomics", "denom_info"),
 			"Information about a Cosmos SDK denomination.",
 			[]string{"symbol", "denom", "name", "display"},
 			prometheus.Labels{"source": "grpc"},
 		),
 		totalSupplyDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("yaci", "tokenomics", "total_supply"),
+			prometheus.BuildFQName("manifest", "tokenomics", "total_supply"),
 			"Total supply of a specific denomination.",
 			[]string{"denom"},
 			prometheus.Labels{"source": "grpc"},
 		),
 		upDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("yaci", "tokenomics", "denom_grpc_up"),
+			prometheus.BuildFQName("manifest", "tokenomics", "denom_grpc_up"),
 			"Whether the gRPC query was successful.",
 			nil,
 			prometheus.Labels{"source": "grpc", "queries": "DenomMetadata, SupplyOf"},

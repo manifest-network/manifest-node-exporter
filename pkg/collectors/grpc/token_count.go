@@ -34,13 +34,13 @@ func NewTokenCountCollector(client *client.GRPCClient) *TokenCountCollector {
 		grpcClient:   client,
 		initialError: initialError,
 		tokenCountDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("yaci", "tokenomics", "token_number"),
+			prometheus.BuildFQName("manifest", "tokenomics", "token_number"),
 			"Total number of denominations, including native, IBC and factory tokens.",
 			[]string{},
 			prometheus.Labels{"source": "grpc"},
 		),
 		upDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("yaci", "tokenomics", "supply_grpc_up"),
+			prometheus.BuildFQName("manifest", "tokenomics", "supply_grpc_up"),
 			"Whether the gRPC query was successful.",
 			nil,
 			prometheus.Labels{"source": "grpc", "queries": "DenomsMetadata"},
