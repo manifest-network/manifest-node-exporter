@@ -1,20 +1,19 @@
-package grpc
+package collectors
 
 import (
 	"log/slog"
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	queryv1beta1 "cosmossdk.io/api/cosmos/base/query/v1beta1"
+	"github.com/liftedinit/manifest-node-exporter/pkg/client"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/liftedinit/manifest-node-exporter/pkg"
 )
 
 // TokenCountCollector collects the total number of denominations from the Cosmos SDK bank module via gRPC.
 type TokenCountCollector struct {
-	grpcClient     *pkg.GRPCClient
+	grpcClient     *client.GRPCClient
 	tokenCountDesc *prometheus.Desc // Token count
 	upDesc         *prometheus.Desc // gRPC query success
 	initialError   error
@@ -22,7 +21,7 @@ type TokenCountCollector struct {
 
 // NewTokenCountCollector creates a new TokenCountCollector.
 // It requires a gRPC client connection to query the bank module.
-func NewTokenCountCollector(client *pkg.GRPCClient) *TokenCountCollector {
+func NewTokenCountCollector(client *client.GRPCClient) *TokenCountCollector {
 	var initialError error
 	if client == nil {
 		initialError = status.Error(codes.Internal, "gRPC client is nil")
@@ -100,7 +99,7 @@ func (c *TokenCountCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func init() {
-	RegisterGrpcCollectorFactory(func(client *pkg.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error) {
+	RegisterGrpcCollectorFactory(func(client *client.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error) {
 		return NewTokenCountCollector(client), nil
 	})
 }

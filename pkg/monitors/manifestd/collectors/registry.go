@@ -1,16 +1,15 @@
-package grpc
+package collectors
 
 import (
 	"errors"
 	"fmt"
 	"log/slog"
 
+	"github.com/liftedinit/manifest-node-exporter/pkg/client"
 	"github.com/prometheus/client_golang/prometheus"
-
-	"github.com/liftedinit/manifest-node-exporter/pkg"
 )
 
-type GrpcCollectorFactory func(client *pkg.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error)
+type GrpcCollectorFactory func(client *client.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error)
 
 // GrpcRegistry holds factories for gRPC-based collectors.
 type GrpcRegistry struct {
@@ -30,7 +29,7 @@ func (r *GrpcRegistry) Register(factory GrpcCollectorFactory) {
 }
 
 // CreateGrpcCollectors instantiates all registered gRPC collectors.
-func (r *GrpcRegistry) CreateGrpcCollectors(client *pkg.GRPCClient, extraParams ...interface{}) ([]prometheus.Collector, error) {
+func (r *GrpcRegistry) CreateGrpcCollectors(client *client.GRPCClient, extraParams ...interface{}) ([]prometheus.Collector, error) {
 	if client == nil {
 		return nil, errors.New("gRPC client is nil")
 	}
@@ -58,7 +57,7 @@ func RegisterGrpcCollectorFactory(factory GrpcCollectorFactory) {
 	DefaultGrpcRegistry.Register(factory)
 }
 
-func RegisterCollectors(grpcClient *pkg.GRPCClient) ([]prometheus.Collector, error) {
+func RegisterCollectors(grpcClient *client.GRPCClient) ([]prometheus.Collector, error) {
 	if grpcClient == nil || grpcClient.Conn == nil {
 		return nil, fmt.Errorf("cannot register collectors with a nil or unconnected gRPC client")
 	}

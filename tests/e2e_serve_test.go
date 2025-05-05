@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/liftedinit/manifest-node-exporter/pkg/monitors/manifestd/collectors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/grpc"
 	"github.com/liftedinit/manifest-node-exporter/test_utils"
 )
 
@@ -26,7 +26,7 @@ func TestE2EServe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	collectors, err := grpc.RegisterCollectors(mockClient)
+	collectors, err := collectors.RegisterCollectors(mockClient)
 	require.NoError(t, err)
 	require.NotEmpty(t, collectors)
 

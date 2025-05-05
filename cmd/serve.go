@@ -4,30 +4,29 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/liftedinit/manifest-node-exporter/pkg"
+	"github.com/liftedinit/manifest-node-exporter/pkg/monitors"
+	_ "github.com/liftedinit/manifest-node-exporter/pkg/monitors/manifestd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/grpc"
 )
 
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
-	Use:   "serve grpc-addr [flags]",
+	Use:   "serve [flags]",
 	Short: "Serve Manifest node metrics",
-	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if parent := cmd.Parent(); parent != nil && parent.PreRunE != nil {
 			if err := parent.PreRunE(parent, args); err != nil {
 				return err
 			}
 		}
+		slog.Info("Starting manifest-node-exporter")
 
 		config := pkg.LoadServeConfig()
 
@@ -35,10 +34,32 @@ var serveCmd = &cobra.Command{
 		defer rootCancel()
 		handleInterrupt(rootCancel)
 
-		// Setup gRPC
-		grpcAddr := args[0]
-		if err := setupGrpc(rootCtx, grpcAddr, config.Insecure); err != nil {
-			return fmt.Errorf("failed to setup gRPC: %w", err)
+		registeredMonitors := monitors.GetRegisteredMonitors()
+		if len(registeredMonitors) == 0 {
+			return fmt.Errorf("no registered monitors found")
+		} else {
+			slog.Info("Registered monitors", "count", len(registeredMonitors))
+			for _, monitor := range registeredMonitors {
+				slog.Debug("Monitor", "name", monitor.Name())
+			}
+		}
+
+		for _, monitor := range registeredMonitors {
+			slog.Info("Attempting to detect process", "name", monitor.Name())
+			processInfo, err := monitor.Detect()
+			if err != nil {
+				slog.Error("Failed to detect process", "name", monitor.Name(), "error", err)
+				continue
+			}
+
+			if processInfo == nil {
+				continue
+			}
+
+			if err := monitor.RegisterCollectors(rootCtx, processInfo); err != nil {
+				slog.Error("Failed to register collectors", "name", monitor.Name(), "error", err)
+				continue
+			}
 		}
 
 		// Setup metrics server
@@ -69,50 +90,6 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func setupGrpc(ctx context.Context, grpcAddr string, insecure bool) error {
-	if err := validateGrpcAddress(grpcAddr); err != nil {
-		return fmt.Errorf("invalid gRPC address '%s': %w", grpcAddr, err)
-	}
-
-	grpcClient, err := pkg.NewGRPCClient(ctx, grpcAddr, insecure)
-	if err != nil {
-		return fmt.Errorf("failed to initialize gRPC: %w", err)
-	}
-	defer func() {
-		if grpcClient != nil && grpcClient.Conn != nil {
-			slog.Debug("Closing gRPC connection", "target", grpcClient.Conn.Target())
-			if err := grpcClient.Conn.Close(); err != nil {
-				slog.Error("Failed to close gRPC connection", "error", err)
-			}
-		}
-	}()
-
-	_, err = grpc.RegisterCollectors(grpcClient)
-	if err != nil {
-		return fmt.Errorf("failed to register gRPC collectors: %w", err)
-	}
-
-	return nil
-}
-
-func validateGrpcAddress(grpcAddr string) error {
-	if grpcAddr == "" {
-		return fmt.Errorf("gRPC address cannot be empty")
-	}
-
-	_, portStr, err := net.SplitHostPort(grpcAddr)
-	if err != nil {
-		return fmt.Errorf("invalid gRPC address format '%s', expected host:port: %w", grpcAddr, err)
-	}
-
-	port, err := net.LookupPort("tcp", portStr)
-	if err != nil || port < 1 || port > 65535 {
-		return fmt.Errorf("invalid port number: '%s', expected a valid port number: %w", portStr, err)
-	}
-
-	return nil
-}
-
 // handleInterrupt handles interrupt signals for graceful shutdown.
 func handleInterrupt(cancel context.CancelFunc) {
 	c := make(chan os.Signal, 1)
@@ -127,8 +104,6 @@ func handleInterrupt(cancel context.CancelFunc) {
 func init() {
 	serveCmd.Flags().String("listen-address", "0.0.0.0:2112", "Address to listen on")
 	serveCmd.Flags().Bool("insecure", false, "Skip TLS certificate verification (INSECURE)")
-	serveCmd.Flags().Uint("max-concurrency", 100, "Maximum request concurrency (advanced)")
-	serveCmd.Flags().Uint("max-retries", 3, "Maximum number of retries for failed requests")
 
 	if err := viper.BindPFlags(serveCmd.Flags()); err != nil {
 		slog.Error("Failed to bind serveCmd flags", "error", err)
