@@ -20,10 +20,10 @@ jobs:
       - checkout
       - go/install:
           version: *go_version
-      - go/load-cache:
+      - go/load-mod-cache:
             key: *go_mod_cache_key
       - go/mod-download
-      - go/save-cache:
+      - go/save-mod-cache:
             key: *go_mod_cache_key
       - run: make coverage
       - codecov/upload:
