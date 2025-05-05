@@ -48,15 +48,10 @@ func (s *MetricsServer) Start() <-chan error {
 	slog.Info("Starting Prometheus metrics server...", "address", s.listenAddr)
 
 	go func() {
-		// ListenAndServe blocks until the server stops.
 		err := s.httpServer.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			// Only send non-nil errors that aren't the expected ErrServerClosed
 			errChan <- fmt.Errorf("prometheus metrics server failed: %w", err)
 		}
-		// Close the channel only if an error occurred, otherwise leave it open.
-		// The caller uses context cancellation for shutdown signal, not channel closing.
-		// close(errChan) // Don't close here on normal shutdown
 	}()
 
 	// Give a brief moment to allow ListenAndServe to start or fail early
@@ -77,5 +72,5 @@ func (s *MetricsServer) Shutdown(ctx context.Context) error {
 	} else {
 		slog.Error("Error during metrics server shutdown.", "error", err)
 	}
-	return err // Return the error for the caller
+	return err
 }

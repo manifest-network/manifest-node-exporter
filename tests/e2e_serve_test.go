@@ -53,7 +53,7 @@ func TestE2EServe(t *testing.T) {
 	}{
 		{"manifest_tokenomics_denom_info", `{denom="udummy",display="DUMMY_DISPLAY",name="Dummy_Name",source="grpc",symbol="Dummy_Symbol"}`},
 		{"manifest_tokenomics_total_supply", `{denom="udummy",source="grpc"} 10`},
-		{"manifest_tokenomics_token_number", `{source="grpc"} 102`},
+		{"manifest_tokenomics_token_count", `{source="grpc"} 102`},
 	}
 	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {

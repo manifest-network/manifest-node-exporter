@@ -63,7 +63,6 @@ func RegisterCollectors(grpcClient *pkg.GRPCClient) ([]prometheus.Collector, err
 		return nil, fmt.Errorf("cannot register collectors with a nil or unconnected gRPC client")
 	}
 
-	// Use the DefaultGrpcRegistry defined in common.go to create collectors
 	collectors, err := DefaultGrpcRegistry.CreateGrpcCollectors(grpcClient)
 	if err != nil {
 		// Error already logged by CreateGrpcCollectors if a factory failed
@@ -79,17 +78,10 @@ func RegisterCollectors(grpcClient *pkg.GRPCClient) ([]prometheus.Collector, err
 		if err := prometheus.DefaultRegisterer.Register(collector); err != nil {
 			var alreadyRegistered prometheus.AlreadyRegisteredError
 			if errors.As(err, &alreadyRegistered) {
-				// This is often benign during development or restarts, log as Info or Debug
 				slog.Debug("Collector already registered with Prometheus, skipping registration.", "collector_type", collectorType)
-				// We might still want to include it in the returned list if it was successfully *created*
-				// Depending on desired behavior, you could fetch the existing collector:
-				// registeredCollectors = append(registeredCollectors, alreadyRegistered.ExistingCollector)
 				skippedCount++
 			} else {
-				// This is a more serious registration error
 				slog.Error("Failed to register collector with Prometheus", "collector_type", collectorType, "error", err)
-				// Decide if you want to fail entirely or just skip this collector
-				// Failing fast is often safer.
 				return registeredCollectors, fmt.Errorf("failed to register collector type %s: %w", collectorType, err)
 			}
 		} else {

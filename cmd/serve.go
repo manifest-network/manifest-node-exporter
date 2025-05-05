@@ -115,7 +115,6 @@ func validateGrpcAddress(grpcAddr string) error {
 
 // handleInterrupt handles interrupt signals for graceful shutdown.
 func handleInterrupt(cancel context.CancelFunc) {
-	// Handle interrupt signals for graceful shutdown
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -126,7 +125,7 @@ func handleInterrupt(cancel context.CancelFunc) {
 }
 
 func init() {
-	serveCmd.Flags().String("listen-address", ":2112", "Address to listen on")
+	serveCmd.Flags().String("listen-address", "0.0.0.0:2112", "Address to listen on")
 	serveCmd.Flags().Bool("insecure", false, "Skip TLS certificate verification (INSECURE)")
 	serveCmd.Flags().Uint("max-concurrency", 100, "Maximum request concurrency (advanced)")
 	serveCmd.Flags().Uint("max-retries", 3, "Maximum number of retries for failed requests")
