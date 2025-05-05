@@ -27,7 +27,6 @@ var RootCmd = &cobra.Command{
 	Use:   "manifest-node-exporter",
 	Short: "Manifest Prometheus node exporter",
 	Long:  `Export Prometheus metrics for the Manifest Network node.`,
-	//Version: "0.1.0",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		logLevel := viper.GetString("logLevel")
 		if err := setLogLevel(logLevel); err != nil {

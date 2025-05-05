@@ -5,10 +5,11 @@ import (
 	"net"
 	"testing"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 )
 
 func bufDialer(context.Context, string) (net.Conn, error) {
@@ -17,9 +18,9 @@ func bufDialer(context.Context, string) (net.Conn, error) {
 
 func SetupMockGrpcClient(t *testing.T) *pkg.GRPCClient {
 	ctx := context.Background()
-	conn, err := grpc.DialContext(ctx, "bufnet",
+	conn, err := grpc.NewClient("passthrough://bufnet",
 		grpc.WithContextDialer(bufDialer),
-		grpc.WithTransportCredentials(insecure.NewCredentials()), // Use insecure for testing
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	require.NoError(t, err)
 	return &pkg.GRPCClient{

@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 )
 
 type GrpcCollectorFactory func(client *pkg.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error)

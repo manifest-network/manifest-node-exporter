@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/grpc"
 	"github.com/liftedinit/manifest-node-exporter/test_utils"
-	"github.com/stretchr/testify/require"
 )
 
 // TestE2EServe tests the end-to-end functionality of the server and Prometheus collectors.
@@ -35,7 +36,6 @@ func TestE2EServe(t *testing.T) {
 	httpServer.Start()
 	test_utils.WaitForServerReady(t, "localhost:2112", 5*time.Second)
 
-	//time.Sleep(10 * time.Second)
 	resp, err := http.Get("http://localhost:2112/metrics")
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)

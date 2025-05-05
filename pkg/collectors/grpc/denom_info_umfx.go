@@ -1,8 +1,9 @@
 package grpc
 
 import (
-	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 )
 
 // TODO: Specify the denoms to monitor via the CLI/config.
