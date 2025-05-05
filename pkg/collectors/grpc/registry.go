@@ -2,12 +2,14 @@ package grpc
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type GrpcCollectorFactory func(client *client.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error)
+type GrpcCollectorFactory func(client *pkg.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error)
 
 // GrpcRegistry holds factories for gRPC-based collectors.
 type GrpcRegistry struct {
@@ -27,7 +29,7 @@ func (r *GrpcRegistry) Register(factory GrpcCollectorFactory) {
 }
 
 // CreateGrpcCollectors instantiates all registered gRPC collectors.
-func (r *GrpcRegistry) CreateGrpcCollectors(client *client.GRPCClient, extraParams ...interface{}) ([]prometheus.Collector, error) {
+func (r *GrpcRegistry) CreateGrpcCollectors(client *pkg.GRPCClient, extraParams ...interface{}) ([]prometheus.Collector, error) {
 	if client == nil {
 		return nil, errors.New("gRPC client is nil")
 	}
@@ -53,4 +55,49 @@ var DefaultGrpcRegistry = NewGrpcRegistry()
 // RegisterGrpcCollectorFactory registers a factory with the default gRPC registry.
 func RegisterGrpcCollectorFactory(factory GrpcCollectorFactory) {
 	DefaultGrpcRegistry.Register(factory)
+}
+
+func RegisterCollectors(grpcClient *pkg.GRPCClient) ([]prometheus.Collector, error) {
+	if grpcClient == nil || grpcClient.Conn == nil {
+		return nil, fmt.Errorf("cannot register collectors with a nil or unconnected gRPC client")
+	}
+
+	// Use the DefaultGrpcRegistry defined in common.go to create collectors
+	collectors, err := DefaultGrpcRegistry.CreateGrpcCollectors(grpcClient)
+	if err != nil {
+		// Error already logged by CreateGrpcCollectors if a factory failed
+		return nil, fmt.Errorf("failed to create gRPC collectors: %w", err)
+	}
+
+	var registeredCollectors []prometheus.Collector
+	registeredCount := 0
+	skippedCount := 0
+
+	for _, collector := range collectors {
+		collectorType := fmt.Sprintf("%T", collector) // Get type for logging
+		if err := prometheus.DefaultRegisterer.Register(collector); err != nil {
+			var alreadyRegistered prometheus.AlreadyRegisteredError
+			if errors.As(err, &alreadyRegistered) {
+				// This is often benign during development or restarts, log as Info or Debug
+				slog.Debug("Collector already registered with Prometheus, skipping registration.", "collector_type", collectorType)
+				// We might still want to include it in the returned list if it was successfully *created*
+				// Depending on desired behavior, you could fetch the existing collector:
+				// registeredCollectors = append(registeredCollectors, alreadyRegistered.ExistingCollector)
+				skippedCount++
+			} else {
+				// This is a more serious registration error
+				slog.Error("Failed to register collector with Prometheus", "collector_type", collectorType, "error", err)
+				// Decide if you want to fail entirely or just skip this collector
+				// Failing fast is often safer.
+				return registeredCollectors, fmt.Errorf("failed to register collector type %s: %w", collectorType, err)
+			}
+		} else {
+			slog.Info("Successfully registered collector with Prometheus.", "collector_type", collectorType)
+			registeredCollectors = append(registeredCollectors, collector)
+			registeredCount++
+		}
+	}
+
+	slog.Info("gRPC collector registration complete.", "newly_registered", registeredCount, "skipped_existing", skippedCount, "total_created", len(collectors))
+	return registeredCollectors, nil
 }

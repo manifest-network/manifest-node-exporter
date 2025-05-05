@@ -24,10 +24,10 @@ var (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:     "manifest-node-exporter",
-	Short:   "Manifest Prometheus node exporter",
-	Long:    `Export Prometheus metrics for the Manifest Network node.`,
-	Version: "0.1.0",
+	Use:   "manifest-node-exporter",
+	Short: "Manifest Prometheus node exporter",
+	Long:  `Export Prometheus metrics for the Manifest Network node.`,
+	//Version: "0.1.0",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		logLevel := viper.GetString("logLevel")
 		if err := setLogLevel(logLevel); err != nil {
@@ -56,8 +56,8 @@ func init() {
 		slog.Error("Failed to bind RootCmd flags", "error", err)
 	}
 
-	//RootCmd.SilenceUsage = true
-	//RootCmd.SilenceErrors = true
+	RootCmd.SilenceUsage = true
+	RootCmd.SilenceErrors = true
 
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")

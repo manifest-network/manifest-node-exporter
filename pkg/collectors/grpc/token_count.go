@@ -5,7 +5,7 @@ import (
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	queryv1beta1 "cosmossdk.io/api/cosmos/base/query/v1beta1"
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -13,7 +13,7 @@ import (
 
 // TokenCountCollector collects the total number of denominations from the Cosmos SDK bank module via gRPC.
 type TokenCountCollector struct {
-	grpcClient     *client.GRPCClient
+	grpcClient     *pkg.GRPCClient
 	tokenCountDesc *prometheus.Desc // Token count
 	upDesc         *prometheus.Desc // gRPC query success
 	initialError   error
@@ -21,7 +21,7 @@ type TokenCountCollector struct {
 
 // NewTokenCountCollector creates a new TokenCountCollector.
 // It requires a gRPC client connection to query the bank module.
-func NewTokenCountCollector(client *client.GRPCClient) *TokenCountCollector {
+func NewTokenCountCollector(client *pkg.GRPCClient) *TokenCountCollector {
 	var initialError error
 	if client == nil {
 		initialError = status.Error(codes.Internal, "gRPC client is nil")
@@ -64,7 +64,7 @@ func (c *TokenCountCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	bankQueryClient := bankv1beta1.NewQueryClient(c.grpcClient.Conn)
-	denomsMetaRest, denomsMetaErr := bankQueryClient.DenomsMetadata(c.grpcClient.Ctx, &bankv1beta1.QueryDenomsMetadataRequest{Pagination: &queryv1beta1.PageRequest{CountTotal: true}})
+	denomsMetaResp, denomsMetaErr := bankQueryClient.DenomsMetadata(c.grpcClient.Ctx, &bankv1beta1.QueryDenomsMetadataRequest{Pagination: &queryv1beta1.PageRequest{CountTotal: true}})
 	if denomsMetaErr != nil {
 		slog.Error("Failed to query via gRPC", "query", "DenomsMetadata", "error", denomsMetaErr)
 	}
@@ -76,22 +76,30 @@ func (c *TokenCountCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 	reportUpMetric(ch, c.upDesc, upValue)
 
-	if denomsMetaRest != nil {
-		metric, err := prometheus.NewConstMetric(
-			c.tokenCountDesc,
-			prometheus.GaugeValue,
-			float64(denomsMetaRest.Pagination.Total),
-		)
-		if err != nil {
-			slog.Error("Failed to create total token count metric", "error", err)
-		} else {
-			ch <- metric
-		}
+	if denomsMetaResp == nil {
+		reportInvalidMetric(ch, c.tokenCountDesc, status.Error(codes.Internal, "DenomsMetadata response is nil"))
+		return
+	}
+
+	if denomsMetaResp.Pagination == nil {
+		reportInvalidMetric(ch, c.tokenCountDesc, status.Error(codes.Internal, "Pagination response is nil"))
+		return
+	}
+
+	metric, err := prometheus.NewConstMetric(
+		c.tokenCountDesc,
+		prometheus.GaugeValue,
+		float64(denomsMetaResp.Pagination.Total),
+	)
+	if err != nil {
+		slog.Error("Failed to create total token count metric", "error", err)
+	} else {
+		ch <- metric
 	}
 }
 
 func init() {
-	RegisterGrpcCollectorFactory(func(client *client.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error) {
+	RegisterGrpcCollectorFactory(func(client *pkg.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error) {
 		return NewTokenCountCollector(client), nil
 	})
 }

@@ -2,21 +2,16 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/grpc"
-	serveConfig "github.com/liftedinit/manifest-node-exporter/pkg/config"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -33,75 +28,75 @@ var serveCmd = &cobra.Command{
 			}
 		}
 
-		ctx, cancel := context.WithCancel(context.Background())
-		handleInterrupt(cancel)
+		config := pkg.LoadServeConfig()
 
+		rootCtx, rootCancel := context.WithCancel(context.Background())
+		defer rootCancel()
+		handleInterrupt(rootCancel)
+
+		// Setup gRPC
 		grpcAddr := args[0]
-		if err := validateGrpcAddress(grpcAddr); err != nil {
-			return fmt.Errorf("invalid gRPC address '%s': %w", grpcAddr, err)
+		if err := setupGrpc(rootCtx, grpcAddr, config.Insecure); err != nil {
+			return fmt.Errorf("failed to setup gRPC: %w", err)
 		}
 
-		config := serveConfig.LoadServeConfig()
+		// Setup metrics server
+		metricsSrv := pkg.NewMetricsServer(config.ListenAddress)
+		serverErrChan := metricsSrv.Start()
 
-		grpcClient, err := client.NewGRPCClient(ctx, grpcAddr, config.Insecure)
-		if err != nil {
-			return fmt.Errorf("failed to initialize gRPC: %w", err)
-		}
-
-		_, err = registerGrpcCollectors(grpcClient)
-		if err != nil {
-			return fmt.Errorf("failed to register gRPC collectors: %w", err)
-		}
-
-		slog.Info("Starting Prometheus metrics server...", "address", config.ListenAddress)
-		server, errChan := listen(config.ListenAddress)
-
+		// Wait for server errors or shutdown signal
 		select {
-		case err := <-errChan:
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer shutdownCancel()
-			if shutdownErr := server.Shutdown(shutdownCtx); shutdownErr != nil {
-				slog.Error("Failed to gracefully shutdown metrics server after error", "error", shutdownErr)
-			}
-			return err
-		case <-ctx.Done():
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		case err := <-serverErrChan:
+			slog.Error("Metrics server encountered an error", "error", err)
+			rootCancel()
+			return fmt.Errorf("metrics server failed: %w", err)
+
+		case <-rootCtx.Done():
+			slog.Info("Shutdown signal received, initiating graceful shutdown...")
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer shutdownCancel()
 
-			if err := server.Shutdown(shutdownCtx); err != nil {
-				slog.Error("Failed to gracefully shutdown metrics server", "error", err)
-				return err
+			if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+				slog.Error("Error during graceful shutdown of metrics server", "error", err)
+			} else {
+				slog.Info("Metrics server has shut down.")
 			}
-			slog.Info("Metrics server stopped gracefully")
 		}
 
+		slog.Info("Application shut down complete.")
 		return nil
 	},
 }
 
-func registerGrpcCollectors(grpcClient *client.GRPCClient) ([]prometheus.Collector, error) {
-	collectors, err := grpc.DefaultGrpcRegistry.CreateGrpcCollectors(grpcClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gRPC collectors: %w", err)
+func setupGrpc(ctx context.Context, grpcAddr string, insecure bool) error {
+	if err := validateGrpcAddress(grpcAddr); err != nil {
+		return fmt.Errorf("invalid gRPC address '%s': %w", grpcAddr, err)
 	}
 
-	for _, collector := range collectors {
-		if err := prometheus.Register(collector); err != nil {
-			var alreadyRegistered prometheus.AlreadyRegisteredError
-			if errors.As(err, &alreadyRegistered) {
-				slog.Info("Collector already registered", "collector", alreadyRegistered.ExistingCollector)
-			} else {
-				return nil, fmt.Errorf("failed to register collector: %w", err)
+	grpcClient, err := pkg.NewGRPCClient(ctx, grpcAddr, insecure)
+	if err != nil {
+		return fmt.Errorf("failed to initialize gRPC: %w", err)
+	}
+	defer func() {
+		if grpcClient != nil && grpcClient.Conn != nil {
+			slog.Debug("Closing gRPC connection", "target", grpcClient.Conn.Target())
+			if err := grpcClient.Conn.Close(); err != nil {
+				slog.Error("Failed to close gRPC connection", "error", err)
 			}
 		}
+	}()
+
+	_, err = grpc.RegisterCollectors(grpcClient)
+	if err != nil {
+		return fmt.Errorf("failed to register gRPC collectors: %w", err)
 	}
 
-	return collectors, nil
+	return nil
 }
 
 func validateGrpcAddress(grpcAddr string) error {
 	if grpcAddr == "" {
-		return errors.New("gRPC address cannot be empty")
+		return fmt.Errorf("gRPC address cannot be empty")
 	}
 
 	_, portStr, err := net.SplitHostPort(grpcAddr)
@@ -117,19 +112,6 @@ func validateGrpcAddress(grpcAddr string) error {
 	return nil
 }
 
-func init() {
-	serveCmd.Flags().String("listen-address", ":2112", "Address to listen on")
-	serveCmd.Flags().Bool("insecure", false, "Skip TLS certificate verification (INSECURE)")
-	serveCmd.Flags().Uint("max-concurrency", 100, "Maximum request concurrency (advanced)")
-	serveCmd.Flags().Uint("max-retries", 3, "Maximum number of retries for failed requests")
-
-	if err := viper.BindPFlags(serveCmd.Flags()); err != nil {
-		slog.Error("Failed to bind serveCmd flags", "error", err)
-	}
-
-	RootCmd.AddCommand(serveCmd)
-}
-
 // handleInterrupt handles interrupt signals for graceful shutdown.
 func handleInterrupt(cancel context.CancelFunc) {
 	// Handle interrupt signals for graceful shutdown
@@ -142,17 +124,15 @@ func handleInterrupt(cancel context.CancelFunc) {
 	}()
 }
 
-func listen(addr string) (*http.Server, chan error) {
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
+func init() {
+	serveCmd.Flags().String("listen-address", ":2112", "Address to listen on")
+	serveCmd.Flags().Bool("insecure", false, "Skip TLS certificate verification (INSECURE)")
+	serveCmd.Flags().Uint("max-concurrency", 100, "Maximum request concurrency (advanced)")
+	serveCmd.Flags().Uint("max-retries", 3, "Maximum number of retries for failed requests")
 
-	server := &http.Server{Addr: addr, Handler: mux}
-	errChan := make(chan error)
-	go func() {
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			errChan <- fmt.Errorf("prometheus server failed: %w", err)
-		}
-	}()
+	if err := viper.BindPFlags(serveCmd.Flags()); err != nil {
+		slog.Error("Failed to bind serveCmd flags", "error", err)
+	}
 
-	return server, errChan
+	RootCmd.AddCommand(serveCmd)
 }

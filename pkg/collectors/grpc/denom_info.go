@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,7 +14,7 @@ import (
 // DenomInfoCollector collects denom metadata and total supply metrics from the Cosmos SDK bank module via gRPC.
 // Initialize the collector with the denom you want to monitor.
 type DenomInfoCollector struct {
-	grpcClient      *client.GRPCClient
+	grpcClient      *pkg.GRPCClient
 	denom           string
 	denomInfoDesc   *prometheus.Desc // Denom metadata
 	upDesc          *prometheus.Desc // gRPC query success
@@ -24,7 +24,7 @@ type DenomInfoCollector struct {
 
 // NewDenomInfoCollector creates a new DenomInfoCollector.
 // It requires a gRPC client connection to query the bank module.
-func NewDenomInfoCollector(client *client.GRPCClient, denom string) *DenomInfoCollector {
+func NewDenomInfoCollector(client *pkg.GRPCClient, denom string) *DenomInfoCollector {
 	var initialError error
 	if client == nil {
 		initialError = status.Error(codes.Internal, "gRPC client is nil")

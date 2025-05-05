@@ -3,7 +3,7 @@ package grpc
 import (
 	"log/slog"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,7 +22,7 @@ func reportInvalidMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, err
 	ch <- prometheus.NewInvalidMetric(desc, err)
 }
 
-func validateGrpcClient(client *client.GRPCClient) error {
+func validateGrpcClient(client *pkg.GRPCClient) error {
 	if client == nil {
 		return status.Error(codes.Internal, "gRPC client is nil during collect")
 	}
@@ -32,7 +32,7 @@ func validateGrpcClient(client *client.GRPCClient) error {
 	return nil
 }
 
-func validateClient(client *client.GRPCClient, initErr error) error {
+func validateClient(client *pkg.GRPCClient, initErr error) error {
 	if initErr != nil {
 		return initErr
 	}
