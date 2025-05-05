@@ -37,18 +37,8 @@ var serveCmd = &cobra.Command{
 		handleInterrupt(cancel)
 
 		grpcAddr := args[0]
-		if grpcAddr == "" {
-			return fmt.Errorf("gRPC address is required")
-		}
-
-		_, portStr, err := net.SplitHostPort(grpcAddr)
-		if err != nil {
-			return fmt.Errorf("invalid gRPC address format '%s', expected host:port: %w", grpcAddr, err)
-		}
-
-		port, err := net.LookupPort("tcp", portStr)
-		if err != nil || port < 1 || port > 65535 {
-			return fmt.Errorf("invalid port number: '%s', expected a valid port number: %w", portStr, err)
+		if err := validateGrpcAddress(grpcAddr); err != nil {
+			return fmt.Errorf("invalid gRPC address '%s': %w", grpcAddr, err)
 		}
 
 		config := serveConfig.LoadServeConfig()
@@ -58,21 +48,9 @@ var serveCmd = &cobra.Command{
 			return fmt.Errorf("failed to initialize gRPC: %w", err)
 		}
 
-		grpcCollectors, err := grpc.DefaultGrpcRegistry.CreateGrpcCollectors(grpcClient)
+		_, err = registerGrpcCollectors(grpcClient)
 		if err != nil {
-			slog.Error("Failed to create gRPC collectors", "error", err)
-			grpcCollectors = []prometheus.Collector{} // Ensure slice is not nil
-		}
-
-		allCollectors := grpcCollectors
-
-		for _, c := range allCollectors {
-			if err := prometheus.Register(c); err != nil {
-				var are prometheus.AlreadyRegisteredError
-				if errors.As(err, &are) {
-					slog.Info("Collector already registered", "collector", are.ExistingCollector)
-				}
-			}
+			return fmt.Errorf("failed to register gRPC collectors: %w", err)
 		}
 
 		slog.Info("Starting Prometheus metrics server...", "address", config.ListenAddress)
@@ -101,6 +79,44 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+func registerGrpcCollectors(grpcClient *client.GRPCClient) ([]prometheus.Collector, error) {
+	collectors, err := grpc.DefaultGrpcRegistry.CreateGrpcCollectors(grpcClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gRPC collectors: %w", err)
+	}
+
+	for _, collector := range collectors {
+		if err := prometheus.Register(collector); err != nil {
+			var alreadyRegistered prometheus.AlreadyRegisteredError
+			if errors.As(err, &alreadyRegistered) {
+				slog.Info("Collector already registered", "collector", alreadyRegistered.ExistingCollector)
+			} else {
+				return nil, fmt.Errorf("failed to register collector: %w", err)
+			}
+		}
+	}
+
+	return collectors, nil
+}
+
+func validateGrpcAddress(grpcAddr string) error {
+	if grpcAddr == "" {
+		return errors.New("gRPC address cannot be empty")
+	}
+
+	_, portStr, err := net.SplitHostPort(grpcAddr)
+	if err != nil {
+		return fmt.Errorf("invalid gRPC address format '%s', expected host:port: %w", grpcAddr, err)
+	}
+
+	port, err := net.LookupPort("tcp", portStr)
+	if err != nil || port < 1 || port > 65535 {
+		return fmt.Errorf("invalid port number: '%s', expected a valid port number: %w", portStr, err)
+	}
+
+	return nil
+}
+
 func init() {
 	serveCmd.Flags().String("listen-address", ":2112", "Address to listen on")
 	serveCmd.Flags().Bool("insecure", false, "Skip TLS certificate verification (INSECURE)")
@@ -111,7 +127,7 @@ func init() {
 		slog.Error("Failed to bind serveCmd flags", "error", err)
 	}
 
-	rootCmd.AddCommand(serveCmd)
+	RootCmd.AddCommand(serveCmd)
 }
 
 // handleInterrupt handles interrupt signals for graceful shutdown.
