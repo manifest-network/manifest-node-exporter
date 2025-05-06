@@ -10,7 +10,6 @@ import (
 
 type ServeConfig struct {
 	ListenAddress string `mapstructure:"listen_address"`
-	Insecure      bool   `mapstructure:"insecure"`
 }
 
 func (c ServeConfig) Validate() error {
@@ -32,6 +31,5 @@ func (c ServeConfig) Validate() error {
 func LoadServeConfig() ServeConfig {
 	return ServeConfig{
 		ListenAddress: viper.GetString("listen-address"),
-		Insecure:      viper.GetBool("insecure"),
 	}
 }

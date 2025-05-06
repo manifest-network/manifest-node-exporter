@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	grpcInsecure "google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
@@ -23,9 +22,9 @@ type GRPCClient struct {
 	Conn *grpc.ClientConn
 }
 
-func NewGRPCClient(ctx context.Context, address string, insecure bool) (*GRPCClient, error) {
+func NewGRPCClient(ctx context.Context, address string) (*GRPCClient, error) {
 	slog.Info("Initializing gRPC client pool...")
-	conn, err := dial(address, insecure)
+	conn, err := dial(address)
 	if err != nil {
 		return nil, fmt.Errorf("unable to dial: %w", err)
 	}
@@ -36,15 +35,10 @@ func NewGRPCClient(ctx context.Context, address string, insecure bool) (*GRPCCli
 	}, nil
 }
 
-func dial(address string, insecure bool) (*grpc.ClientConn, error) {
+func dial(address string) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	opts = append(opts, grpc.WithKeepaliveParams(keepaliveParams))
-	if insecure {
-		opts = append(opts, grpc.WithTransportCredentials(grpcInsecure.NewCredentials()))
-	} else {
-		creds := credentials.NewClientTLSFromCert(nil, "")
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	}
+	opts = append(opts, grpc.WithTransportCredentials(grpcInsecure.NewCredentials()))
 
 	conn, err := grpc.NewClient(address, opts...)
 	if err != nil {

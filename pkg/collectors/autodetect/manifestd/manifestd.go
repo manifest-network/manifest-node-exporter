@@ -101,7 +101,7 @@ func (m *manifestdMonitor) CollectCollectors(ctx context.Context, processInfo *a
 
 	// ProcessInfo should contain the necessary information to create a gRPC client
 	target := net.JoinHostPort(processInfo.Address, strconv.Itoa(int(processInfo.Port)))
-	grpcClient, err := client.NewGRPCClient(ctx, target, true)
+	grpcClient, err := client.NewGRPCClient(ctx, target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gRPC client: %w", err)
 	}
