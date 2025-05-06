@@ -36,13 +36,16 @@ var serveCmd = &cobra.Command{
 		defer rootCancel()
 		handleInterrupt(rootCancel)
 
+		// Setup process monitors and fetch all registered collectors
 		allCollectors, err := setupMonitors(rootCtx)
 		if err != nil {
 			return fmt.Errorf("failed to setup monitors: %w", err)
 		}
+
+		// Register all collectors with Prometheus
 		registerCollectors(allCollectors)
 
-		// Setup metrics server
+		// Setup and start metrics server
 		metricsSrv := pkg.NewMetricsServer(config.ListenAddress)
 		serverErrChan := metricsSrv.Start()
 
@@ -70,6 +73,8 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+// setupMonitors initializes and sets up all registered process monitors.
+// It detects the processes and collects the corresponding Prometheus collectors.
 func setupMonitors(ctx context.Context) ([]prometheus.Collector, error) {
 	var allCollectors []prometheus.Collector
 	registeredMonitors := autodetect.GetAllMonitors()
@@ -106,6 +111,7 @@ func setupMonitors(ctx context.Context) ([]prometheus.Collector, error) {
 
 }
 
+// registerCollectors registers the provided Prometheus collectors with the default Prometheus registry.
 func registerCollectors(collectors []prometheus.Collector) {
 	for _, collector := range collectors {
 		collectorType := fmt.Sprintf("%T", collector) // Get type for logging

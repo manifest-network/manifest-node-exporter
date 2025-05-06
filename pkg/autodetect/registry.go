@@ -26,12 +26,15 @@ type ProcessMonitor interface {
 	CollectCollectors(context.Context, *ProcessInfo) ([]prometheus.Collector, error)
 }
 
+// processMonitorRegistry is a registry for all process monitors.
 var processMonitorRegistry = utils.NewRegistry[ProcessMonitor]()
 
+// RegisterMonitor registers a new process monitor with the registry.
 func RegisterMonitor(monitor ProcessMonitor) {
 	processMonitorRegistry.Register(monitor.Name(), monitor)
 }
 
+// GetAllMonitors retrieves all the registered process monitors.
 func GetAllMonitors() []ProcessMonitor {
 	return slices.Collect(maps.Values(processMonitorRegistry.GetAll()))
 }

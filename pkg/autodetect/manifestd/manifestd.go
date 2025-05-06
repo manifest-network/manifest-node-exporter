@@ -27,10 +27,12 @@ func init() {
 	autodetect.RegisterMonitor(&manifestdMonitor{})
 }
 
+// Name returns the name of the process being monitored by manifestd Monitor.
 func (m *manifestdMonitor) Name() string {
 	return processName
 }
 
+// Detect checks if the monitored process is running, validates its gRPC readiness, and retrieves process information.
 func (m *manifestdMonitor) Detect() (*autodetect.ProcessInfo, error) {
 	ok, pid, err := autodetect.IsProcessRunning(processName)
 	if err != nil {
@@ -90,6 +92,9 @@ func (m *manifestdMonitor) Detect() (*autodetect.ProcessInfo, error) {
 	return nil, fmt.Errorf("no gRPC connection found for %s process (PID %d)", processName, pid)
 }
 
+// CollectCollectors gathers all registered Prometheus collectors for the manifestd process using a provided gRPC client.
+// It requires valid process information to establish a gRPC connection.
+// Returns a slice of Prometheus collectors or an error if the process information is nil or the gRPC client cannot be created.
 func (m *manifestdMonitor) CollectCollectors(ctx context.Context, processInfo *autodetect.ProcessInfo) ([]prometheus.Collector, error) {
 	if processInfo == nil {
 		return nil, fmt.Errorf("processInfo is nil")
