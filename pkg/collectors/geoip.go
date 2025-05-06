@@ -149,7 +149,7 @@ func getPublicIP(client *resty.Client) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode() != http.StatusOK {
-		return "", fmt.Errorf("error getting public ip: %s", resp.Status)
+		return "", fmt.Errorf("error getting public ip: %s", resp.Status())
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -174,7 +174,7 @@ func getGeoIP(client *resty.Client, ip string) (*GeoIPResponse, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("error getting geoip: %s", resp.Status)
+		return nil, fmt.Errorf("error getting geoip: %s", resp.Status())
 	}
 
 	body, err := io.ReadAll(resp.Body)
