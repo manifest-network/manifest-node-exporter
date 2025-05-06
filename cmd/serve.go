@@ -149,7 +149,6 @@ func handleInterrupt(cancel context.CancelFunc) {
 
 func init() {
 	serveCmd.Flags().String("listen-address", "0.0.0.0:2112", "Address to listen on")
-	serveCmd.Flags().Bool("insecure", false, "Skip TLS certificate verification (INSECURE)")
 
 	if err := viper.BindPFlags(serveCmd.Flags()); err != nil {
 		slog.Error("Failed to bind serveCmd flags", "error", err)
