@@ -107,6 +107,10 @@ func setupMonitors(ctx context.Context) ([]prometheus.Collector, error) {
 		allCollectors = append(allCollectors, collectors...)
 	}
 
+	if len(allCollectors) == 0 {
+		slog.Warn("No collectors found for any registered monitors")
+	}
+
 	return allCollectors, nil
 
 }
