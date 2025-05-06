@@ -9,9 +9,8 @@ import (
 	"strconv"
 
 	"github.com/liftedinit/manifest-node-exporter/pkg/autodetect"
+	"github.com/liftedinit/manifest-node-exporter/pkg/autodetect/manifestd/collectors"
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
-	"github.com/liftedinit/manifest-node-exporter/pkg/monitors"
-	"github.com/liftedinit/manifest-node-exporter/pkg/monitors/manifestd/collectors"
 	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
 )
 
@@ -19,19 +18,19 @@ const processName = "manifestd"
 const defaultPort = 9090 // Default gRPC port for manifestd
 
 // Ensure manifestdMonitor implements ProcessMonitor
-var _ monitors.ProcessMonitor = (*manifestdMonitor)(nil)
+var _ autodetect.ProcessMonitor = (*manifestdMonitor)(nil)
 
 type manifestdMonitor struct{}
 
 func init() {
-	monitors.Register(&manifestdMonitor{})
+	autodetect.Register(&manifestdMonitor{})
 }
 
 func (m *manifestdMonitor) Name() string {
 	return processName
 }
 
-func (m *manifestdMonitor) Detect() (*monitors.ProcessInfo, error) {
+func (m *manifestdMonitor) Detect() (*autodetect.ProcessInfo, error) {
 	ok, pid, err := autodetect.IsProcessRunning(processName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if %s is running: %w", processName, err)
@@ -62,7 +61,7 @@ func (m *manifestdMonitor) Detect() (*monitors.ProcessInfo, error) {
 
 		if utils.IsGrpcPort(target) {
 			slog.Debug("gRPC connection successful", "target", target)
-			return &monitors.ProcessInfo{
+			return &autodetect.ProcessInfo{
 				Pid:     pid,
 				Address: defaultPortInfo.Address,
 				Port:    defaultPortInfo.Port,
@@ -77,7 +76,7 @@ func (m *manifestdMonitor) Detect() (*monitors.ProcessInfo, error) {
 		target := net.JoinHostPort(port.Address, fmt.Sprint(port.Port))
 		if utils.IsGrpcPort(target) {
 			slog.Debug("gRPC connection successful", "target", target)
-			return &monitors.ProcessInfo{
+			return &autodetect.ProcessInfo{
 				Pid:     pid,
 				Address: port.Address,
 				Port:    port.Port,
@@ -90,7 +89,7 @@ func (m *manifestdMonitor) Detect() (*monitors.ProcessInfo, error) {
 	return nil, fmt.Errorf("no gRPC connection found for %s process (PID %d)", processName, pid)
 }
 
-func (m *manifestdMonitor) RegisterCollectors(ctx context.Context, processInfo *monitors.ProcessInfo) error {
+func (m *manifestdMonitor) RegisterCollectors(ctx context.Context, processInfo *autodetect.ProcessInfo) error {
 	if processInfo == nil {
 		return fmt.Errorf("processInfo is nil")
 	}

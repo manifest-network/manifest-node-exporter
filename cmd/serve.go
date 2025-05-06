@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/monitors"
-	_ "github.com/liftedinit/manifest-node-exporter/pkg/monitors/manifestd"
+	"github.com/liftedinit/manifest-node-exporter/pkg/autodetect"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -34,7 +33,7 @@ var serveCmd = &cobra.Command{
 		defer rootCancel()
 		handleInterrupt(rootCancel)
 
-		registeredMonitors := monitors.GetRegisteredMonitors()
+		registeredMonitors := autodetect.GetRegisteredMonitors()
 		if len(registeredMonitors) == 0 {
 			return fmt.Errorf("no registered monitors found")
 		} else {
