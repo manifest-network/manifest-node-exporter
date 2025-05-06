@@ -55,9 +55,6 @@ func init() {
 		slog.Error("Failed to bind RootCmd flags", "error", err)
 	}
 
-	RootCmd.SilenceUsage = true
-	RootCmd.SilenceErrors = true
-
 	viper.SetConfigName("config")
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("$HOME/.manifest-node-exporter")

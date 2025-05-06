@@ -2,32 +2,33 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/liftedinit/manifest-node-exporter/pkg"
+	"github.com/liftedinit/manifest-node-exporter/pkg/autodetect"
+	_ "github.com/liftedinit/manifest-node-exporter/pkg/autodetect/manifestd" // RegisterMonitor the manifestd monitor (side-effect)
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/grpc"
 )
 
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
-	Use:   "serve grpc-addr [flags]",
+	Use:   "serve [flags]",
 	Short: "Serve Manifest node metrics",
-	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if parent := cmd.Parent(); parent != nil && parent.PreRunE != nil {
 			if err := parent.PreRunE(parent, args); err != nil {
 				return err
 			}
 		}
+		slog.Info("Starting manifest-node-exporter")
 
 		config := pkg.LoadServeConfig()
 
@@ -35,13 +36,16 @@ var serveCmd = &cobra.Command{
 		defer rootCancel()
 		handleInterrupt(rootCancel)
 
-		// Setup gRPC
-		grpcAddr := args[0]
-		if err := setupGrpc(rootCtx, grpcAddr, config.Insecure); err != nil {
-			return fmt.Errorf("failed to setup gRPC: %w", err)
+		// Setup process monitors and fetch all registered collectors
+		allCollectors, err := setupMonitors(rootCtx)
+		if err != nil {
+			return fmt.Errorf("failed to setup monitors: %w", err)
 		}
 
-		// Setup metrics server
+		// Register all collectors with Prometheus
+		registerCollectors(allCollectors)
+
+		// Setup and start metrics server
 		metricsSrv := pkg.NewMetricsServer(config.ListenAddress)
 		serverErrChan := metricsSrv.Start()
 
@@ -69,48 +73,63 @@ var serveCmd = &cobra.Command{
 	},
 }
 
-func setupGrpc(ctx context.Context, grpcAddr string, insecure bool) error {
-	if err := validateGrpcAddress(grpcAddr); err != nil {
-		return fmt.Errorf("invalid gRPC address '%s': %w", grpcAddr, err)
-	}
-
-	grpcClient, err := pkg.NewGRPCClient(ctx, grpcAddr, insecure)
-	if err != nil {
-		return fmt.Errorf("failed to initialize gRPC: %w", err)
-	}
-	defer func() {
-		if grpcClient != nil && grpcClient.Conn != nil {
-			slog.Debug("Closing gRPC connection", "target", grpcClient.Conn.Target())
-			if err := grpcClient.Conn.Close(); err != nil {
-				slog.Error("Failed to close gRPC connection", "error", err)
-			}
+// setupMonitors initializes and sets up all registered process monitors.
+// It detects the processes and collects the corresponding Prometheus collectors.
+func setupMonitors(ctx context.Context) ([]prometheus.Collector, error) {
+	var allCollectors []prometheus.Collector
+	registeredMonitors := autodetect.GetAllMonitors()
+	if len(registeredMonitors) == 0 {
+		return nil, fmt.Errorf("no registered monitors found")
+	} else {
+		slog.Info("Registered monitors", "count", len(registeredMonitors))
+		for _, monitor := range registeredMonitors {
+			slog.Debug("Monitor", "name", monitor.Name())
 		}
-	}()
-
-	_, err = grpc.RegisterCollectors(grpcClient)
-	if err != nil {
-		return fmt.Errorf("failed to register gRPC collectors: %w", err)
 	}
 
-	return nil
+	for _, monitor := range registeredMonitors {
+		slog.Info("Attempting to detect process", "name", monitor.Name())
+		processInfo, err := monitor.Detect()
+		if err != nil {
+			slog.Error("Failed to detect process", "name", monitor.Name(), "error", err)
+			continue
+		}
+
+		if processInfo == nil {
+			continue
+		}
+
+		collectors, err := monitor.CollectCollectors(ctx, processInfo)
+		if err != nil {
+			slog.Error("Failed to collect collectors", "name", monitor.Name(), "error", err)
+			continue
+		}
+		allCollectors = append(allCollectors, collectors...)
+	}
+
+	if len(allCollectors) == 0 {
+		slog.Warn("No collectors found for any registered monitors")
+	}
+
+	return allCollectors, nil
+
 }
 
-func validateGrpcAddress(grpcAddr string) error {
-	if grpcAddr == "" {
-		return fmt.Errorf("gRPC address cannot be empty")
+// registerCollectors registers the provided Prometheus collectors with the default Prometheus registry.
+func registerCollectors(collectors []prometheus.Collector) {
+	for _, collector := range collectors {
+		collectorType := fmt.Sprintf("%T", collector) // Get type for logging
+		if err := prometheus.DefaultRegisterer.Register(collector); err != nil {
+			var alreadyRegistered prometheus.AlreadyRegisteredError
+			if errors.As(err, &alreadyRegistered) {
+				slog.Debug("Collector already registered with Prometheus, skipping registration.", "collector_type", collectorType)
+			} else {
+				slog.Error("Failed to register collector with Prometheus", "collector_type", collectorType, "error", err)
+			}
+		} else {
+			slog.Info("Successfully registered collector with Prometheus.", "collector_type", collectorType)
+		}
 	}
-
-	_, portStr, err := net.SplitHostPort(grpcAddr)
-	if err != nil {
-		return fmt.Errorf("invalid gRPC address format '%s', expected host:port: %w", grpcAddr, err)
-	}
-
-	port, err := net.LookupPort("tcp", portStr)
-	if err != nil || port < 1 || port > 65535 {
-		return fmt.Errorf("invalid port number: '%s', expected a valid port number: %w", portStr, err)
-	}
-
-	return nil
 }
 
 // handleInterrupt handles interrupt signals for graceful shutdown.
@@ -127,8 +146,6 @@ func handleInterrupt(cancel context.CancelFunc) {
 func init() {
 	serveCmd.Flags().String("listen-address", "0.0.0.0:2112", "Address to listen on")
 	serveCmd.Flags().Bool("insecure", false, "Skip TLS certificate verification (INSECURE)")
-	serveCmd.Flags().Uint("max-concurrency", 100, "Maximum request concurrency (advanced)")
-	serveCmd.Flags().Uint("max-retries", 3, "Maximum number of retries for failed requests")
 
 	if err := viper.BindPFlags(serveCmd.Flags()); err != nil {
 		slog.Error("Failed to bind serveCmd flags", "error", err)
