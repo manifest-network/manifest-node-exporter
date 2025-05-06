@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func reportUpMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, value float64) {
+func ReportUpMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, value float64) {
 	metric, err := prometheus.NewConstMetric(desc, prometheus.GaugeValue, value)
 	if err != nil {
 		slog.Error("Failed to create up metric", "error", err)
@@ -18,11 +18,11 @@ func reportUpMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, value fl
 	}
 }
 
-func reportInvalidMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, err error) {
+func ReportInvalidMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, err error) {
 	ch <- prometheus.NewInvalidMetric(desc, err)
 }
 
-func validateGrpcClient(client *client.GRPCClient) error {
+func ValidateGrpcClient(client *client.GRPCClient) error {
 	if client == nil {
 		return status.Error(codes.Internal, "gRPC client is nil during collect")
 	}
@@ -32,11 +32,11 @@ func validateGrpcClient(client *client.GRPCClient) error {
 	return nil
 }
 
-func validateClient(client *client.GRPCClient, initErr error) error {
+func ValidateClient(client *client.GRPCClient, initErr error) error {
 	if initErr != nil {
 		return initErr
 	}
-	if clientErr := validateGrpcClient(client); clientErr != nil {
+	if clientErr := ValidateGrpcClient(client); clientErr != nil {
 		return clientErr
 	}
 	return nil

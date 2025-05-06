@@ -8,9 +8,8 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/autodetect"
-	"github.com/liftedinit/manifest-node-exporter/pkg/autodetect/manifestd/collectors"
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect"
 	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -108,7 +107,7 @@ func (m *manifestdMonitor) CollectCollectors(ctx context.Context, processInfo *a
 	}
 
 	var resultCollectors []prometheus.Collector
-	for _, collector := range collectors.GetAllCollectorFactories() {
+	for _, collector := range GetAllCollectorFactories() {
 		resultCollectors = append(resultCollectors, collector(grpcClient))
 	}
 
