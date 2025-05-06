@@ -164,3 +164,9 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 		ch <- metric
 	}
 }
+
+func init() {
+	RegisterCollectorFactory("denom_info", func(grpcClient *client.GRPCClient, extra ...interface{}) prometheus.Collector {
+		return NewDenomInfoCollector(grpcClient, "umfx")
+	})
+}

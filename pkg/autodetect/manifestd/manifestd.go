@@ -12,6 +12,7 @@ import (
 	"github.com/liftedinit/manifest-node-exporter/pkg/autodetect/manifestd/collectors"
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
 	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const processName = "manifestd"
@@ -23,7 +24,7 @@ var _ autodetect.ProcessMonitor = (*manifestdMonitor)(nil)
 type manifestdMonitor struct{}
 
 func init() {
-	autodetect.Register(&manifestdMonitor{})
+	autodetect.RegisterMonitor(&manifestdMonitor{})
 }
 
 func (m *manifestdMonitor) Name() string {
@@ -89,23 +90,22 @@ func (m *manifestdMonitor) Detect() (*autodetect.ProcessInfo, error) {
 	return nil, fmt.Errorf("no gRPC connection found for %s process (PID %d)", processName, pid)
 }
 
-func (m *manifestdMonitor) RegisterCollectors(ctx context.Context, processInfo *autodetect.ProcessInfo) error {
+func (m *manifestdMonitor) CollectCollectors(ctx context.Context, processInfo *autodetect.ProcessInfo) ([]prometheus.Collector, error) {
 	if processInfo == nil {
-		return fmt.Errorf("processInfo is nil")
+		return nil, fmt.Errorf("processInfo is nil")
 	}
 
 	// ProcessInfo should contain the necessary information to create a gRPC client
 	target := net.JoinHostPort(processInfo.Address, strconv.Itoa(int(processInfo.Port)))
 	grpcClient, err := client.NewGRPCClient(ctx, target, true)
 	if err != nil {
-		return fmt.Errorf("failed to create gRPC client: %w", err)
+		return nil, fmt.Errorf("failed to create gRPC client: %w", err)
 	}
 
-	// Register the gRPC client with the registry
-	_, err = collectors.RegisterCollectors(grpcClient)
-	if err != nil {
-		return fmt.Errorf("failed to create gRPC collectors: %w", err)
+	var resultCollectors []prometheus.Collector
+	for _, collector := range collectors.GetAllCollectorFactories() {
+		resultCollectors = append(resultCollectors, collector(grpcClient))
 	}
 
-	return nil
+	return resultCollectors, nil
 }

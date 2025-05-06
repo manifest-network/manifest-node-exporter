@@ -2,7 +2,11 @@ package autodetect
 
 import (
 	"context"
-	"log/slog"
+	"maps"
+	"slices"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ProcessInfo holds information about a detected process.
@@ -18,28 +22,16 @@ type ProcessMonitor interface {
 	Name() string
 	// Detect checks if the process is running and returns its info.
 	Detect() (*ProcessInfo, error)
-	// RegisterCollectors registers the collectors for the process.
-	RegisterCollectors(context.Context, *ProcessInfo) error
+	// CollectCollectors registers the collectors for the process.
+	CollectCollectors(context.Context, *ProcessInfo) ([]prometheus.Collector, error)
 }
 
-var registry = make(map[string]ProcessMonitor)
+var processMonitorRegistry = utils.NewRegistry[ProcessMonitor]()
 
-// Register adds a ProcessMonitor to the global registry.
-// It should typically be called from the init() function of a monitor package.
-func Register(monitor ProcessMonitor) {
-	name := monitor.Name()
-	if _, exists := registry[name]; exists {
-		slog.Warn("ProcessMonitor already registered, overwriting", "name", name)
-	}
-	slog.Debug("Registering ProcessMonitor", "name", name)
-	registry[name] = monitor
+func RegisterMonitor(monitor ProcessMonitor) {
+	processMonitorRegistry.Register(monitor.Name(), monitor)
 }
 
-// GetRegisteredMonitors returns a slice of all registered monitors.
-func GetRegisteredMonitors() []ProcessMonitor {
-	monitors := make([]ProcessMonitor, 0, len(registry))
-	for _, monitor := range registry {
-		monitors = append(monitors, monitor)
-	}
-	return monitors
+func GetAllMonitors() []ProcessMonitor {
+	return slices.Collect(maps.Values(processMonitorRegistry.GetAll()))
 }

@@ -99,7 +99,7 @@ func (c *TokenCountCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func init() {
-	RegisterGrpcCollectorFactory(func(client *client.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error) {
-		return NewTokenCountCollector(client), nil
+	RegisterCollectorFactory("token_count", func(grpcClient *client.GRPCClient, extra ...interface{}) prometheus.Collector {
+		return NewTokenCountCollector(grpcClient)
 	})
 }

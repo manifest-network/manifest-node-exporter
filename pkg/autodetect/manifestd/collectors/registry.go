@@ -1,95 +1,22 @@
 package collectors
 
 import (
-	"errors"
-	"fmt"
-	"log/slog"
+	"maps"
+	"slices"
 
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-type GrpcCollectorFactory func(client *client.GRPCClient, extraParams ...interface{}) (prometheus.Collector, error)
+type ManifestdCollectorFactory = func(grpcClient *client.GRPCClient, extra ...interface{}) prometheus.Collector
 
-// GrpcRegistry holds factories for gRPC-based collectors.
-type GrpcRegistry struct {
-	factories []GrpcCollectorFactory
+var manifestdCollectorRegistry = utils.NewRegistry[ManifestdCollectorFactory]()
+
+func RegisterCollectorFactory(name string, factory ManifestdCollectorFactory) {
+	manifestdCollectorRegistry.Register(name, factory)
 }
 
-// NewGrpcRegistry creates a new registry for gRPC collectors.
-func NewGrpcRegistry() *GrpcRegistry {
-	return &GrpcRegistry{
-		factories: make([]GrpcCollectorFactory, 0),
-	}
-}
-
-// Register adds a new gRPC collector factory.
-func (r *GrpcRegistry) Register(factory GrpcCollectorFactory) {
-	r.factories = append(r.factories, factory)
-}
-
-// CreateGrpcCollectors instantiates all registered gRPC collectors.
-func (r *GrpcRegistry) CreateGrpcCollectors(client *client.GRPCClient, extraParams ...interface{}) ([]prometheus.Collector, error) {
-	if client == nil {
-		return nil, errors.New("gRPC client is nil")
-	}
-	if client.Conn == nil {
-		return nil, errors.New("gRPC client connection is nil for gRPC collectors")
-	}
-
-	collectors := make([]prometheus.Collector, 0, len(r.factories))
-	for _, factory := range r.factories {
-		collector, err := factory(client, extraParams...)
-		if err != nil {
-			// Consider logging the specific factory that failed
-			return nil, err
-		}
-		collectors = append(collectors, collector)
-	}
-	return collectors, nil
-}
-
-// DefaultGrpcRegistry is the default registry instance for gRPC collectors.
-var DefaultGrpcRegistry = NewGrpcRegistry()
-
-// RegisterGrpcCollectorFactory registers a factory with the default gRPC registry.
-func RegisterGrpcCollectorFactory(factory GrpcCollectorFactory) {
-	DefaultGrpcRegistry.Register(factory)
-}
-
-func RegisterCollectors(grpcClient *client.GRPCClient) ([]prometheus.Collector, error) {
-	if grpcClient == nil || grpcClient.Conn == nil {
-		return nil, fmt.Errorf("cannot register collectors with a nil or unconnected gRPC client")
-	}
-
-	collectors, err := DefaultGrpcRegistry.CreateGrpcCollectors(grpcClient)
-	if err != nil {
-		// Error already logged by CreateGrpcCollectors if a factory failed
-		return nil, fmt.Errorf("failed to create gRPC collectors: %w", err)
-	}
-
-	var registeredCollectors []prometheus.Collector
-	registeredCount := 0
-	skippedCount := 0
-
-	for _, collector := range collectors {
-		collectorType := fmt.Sprintf("%T", collector) // Get type for logging
-		if err := prometheus.DefaultRegisterer.Register(collector); err != nil {
-			var alreadyRegistered prometheus.AlreadyRegisteredError
-			if errors.As(err, &alreadyRegistered) {
-				slog.Debug("Collector already registered with Prometheus, skipping registration.", "collector_type", collectorType)
-				skippedCount++
-			} else {
-				slog.Error("Failed to register collector with Prometheus", "collector_type", collectorType, "error", err)
-				return registeredCollectors, fmt.Errorf("failed to register collector type %s: %w", collectorType, err)
-			}
-		} else {
-			slog.Info("Successfully registered collector with Prometheus.", "collector_type", collectorType)
-			registeredCollectors = append(registeredCollectors, collector)
-			registeredCount++
-		}
-	}
-
-	slog.Info("gRPC collector registration complete.", "newly_registered", registeredCount, "skipped_existing", skippedCount, "total_created", len(collectors))
-	return registeredCollectors, nil
+func GetAllCollectorFactories() []ManifestdCollectorFactory {
+	return slices.Collect(maps.Values(manifestdCollectorRegistry.GetAll()))
 }
