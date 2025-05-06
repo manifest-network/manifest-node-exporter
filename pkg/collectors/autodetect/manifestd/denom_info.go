@@ -1,4 +1,4 @@
-package collectors
+package manifestd
 
 import (
 	"log/slog"
@@ -6,6 +6,7 @@ import (
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -71,10 +72,10 @@ func (c *DenomInfoCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements the prometheus.Collector interface.
 func (c *DenomInfoCollector) Collect(ch chan<- prometheus.Metric) {
 	// Check for initialization or connection errors first.
-	if err := validateClient(c.grpcClient, c.initialError); err != nil {
-		reportUpMetric(ch, c.upDesc, 0) // Report gRPC down
-		reportInvalidMetric(ch, c.totalSupplyDesc, err)
-		reportInvalidMetric(ch, c.denomInfoDesc, err)
+	if err := collectors.ValidateClient(c.grpcClient, c.initialError); err != nil {
+		collectors.ReportUpMetric(ch, c.upDesc, 0) // Report gRPC down
+		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, err)
+		collectors.ReportInvalidMetric(ch, c.denomInfoDesc, err)
 		return
 	}
 
@@ -94,7 +95,7 @@ func (c *DenomInfoCollector) Collect(ch chan<- prometheus.Metric) {
 	if denomMetaErr == nil && totalSupplyErr == nil {
 		upValue = 1.0
 	}
-	reportUpMetric(ch, c.upDesc, upValue)
+	collectors.ReportUpMetric(ch, c.upDesc, upValue)
 
 	c.collectDenomMetadata(ch, denomMetaResp, denomMetaErr)
 	c.collectTotalSupply(ch, totalSupplyResp, totalSupplyErr)
@@ -102,7 +103,7 @@ func (c *DenomInfoCollector) Collect(ch chan<- prometheus.Metric) {
 
 func (c *DenomInfoCollector) collectDenomMetadata(ch chan<- prometheus.Metric, resp *bankv1beta1.QueryDenomMetadataResponse, queryErr error) {
 	if queryErr != nil {
-		reportInvalidMetric(ch, c.denomInfoDesc, queryErr)
+		collectors.ReportInvalidMetric(ch, c.denomInfoDesc, queryErr)
 		return
 	}
 	if resp == nil {
@@ -131,7 +132,7 @@ func (c *DenomInfoCollector) collectDenomMetadata(ch chan<- prometheus.Metric, r
 
 func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, resp *bankv1beta1.QuerySupplyOfResponse, queryErr error) {
 	if queryErr != nil {
-		reportInvalidMetric(ch, c.totalSupplyDesc, queryErr)
+		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, queryErr)
 		return
 	}
 	if resp == nil {
@@ -140,7 +141,7 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 	coin := resp.Amount
 	if coin == nil {
 		slog.Warn("Total supply response is nil")
-		reportInvalidMetric(ch, c.totalSupplyDesc, status.Error(codes.Internal, "total supply response is nil"))
+		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, status.Error(codes.Internal, "total supply response is nil"))
 		return
 	}
 
@@ -148,7 +149,7 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 	if err != nil {
 		parseErr := status.Errorf(codes.Internal, "failed to parse amount '%s' for denom '%s': %v", coin.Amount, coin.Denom, err)
 		slog.Warn("Failed to parse total supply amount", "denom", coin.Denom, "amount", coin.Amount, "error", err)
-		reportInvalidMetric(ch, c.totalSupplyDesc, parseErr)
+		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, parseErr)
 		return
 	}
 

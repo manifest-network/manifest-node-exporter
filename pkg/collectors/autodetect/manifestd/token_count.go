@@ -1,4 +1,4 @@
-package collectors
+package manifestd
 
 import (
 	"log/slog"
@@ -6,6 +6,7 @@ import (
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	queryv1beta1 "cosmossdk.io/api/cosmos/base/query/v1beta1"
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -57,9 +58,9 @@ func (c *TokenCountCollector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements the prometheus.Collector interface.
 func (c *TokenCountCollector) Collect(ch chan<- prometheus.Metric) {
 	// Check for initialization or connection errors first.
-	if err := validateClient(c.grpcClient, c.initialError); err != nil {
-		reportUpMetric(ch, c.upDesc, 0) // Report gRPC down
-		reportInvalidMetric(ch, c.tokenCountDesc, err)
+	if err := collectors.ValidateClient(c.grpcClient, c.initialError); err != nil {
+		collectors.ReportUpMetric(ch, c.upDesc, 0) // Report gRPC down
+		collectors.ReportInvalidMetric(ch, c.tokenCountDesc, err)
 		return
 	}
 
@@ -74,15 +75,15 @@ func (c *TokenCountCollector) Collect(ch chan<- prometheus.Metric) {
 	if denomsMetaErr == nil {
 		upValue = 1.0
 	}
-	reportUpMetric(ch, c.upDesc, upValue)
+	collectors.ReportUpMetric(ch, c.upDesc, upValue)
 
 	if denomsMetaResp == nil {
-		reportInvalidMetric(ch, c.tokenCountDesc, status.Error(codes.Internal, "DenomsMetadata response is nil"))
+		collectors.ReportInvalidMetric(ch, c.tokenCountDesc, status.Error(codes.Internal, "DenomsMetadata response is nil"))
 		return
 	}
 
 	if denomsMetaResp.Pagination == nil {
-		reportInvalidMetric(ch, c.tokenCountDesc, status.Error(codes.Internal, "Pagination response is nil"))
+		collectors.ReportInvalidMetric(ch, c.tokenCountDesc, status.Error(codes.Internal, "Pagination response is nil"))
 		return
 	}
 

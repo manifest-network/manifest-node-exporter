@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/autodetect"
-	_ "github.com/liftedinit/manifest-node-exporter/pkg/autodetect/manifestd" // RegisterMonitor the manifestd monitor (side-effect)
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect"
+	_ "github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect/manifestd" // RegisterMonitor the manifestd monitor (side-effect)
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -36,11 +37,14 @@ var serveCmd = &cobra.Command{
 		defer rootCancel()
 		handleInterrupt(rootCancel)
 
+		geoIpCollector := collectors.NewGeoIPCollector()
+
 		// Setup process monitors and fetch all registered collectors
-		allCollectors, err := setupMonitors(rootCtx)
+		monitorCollectors, err := setupMonitors(rootCtx)
 		if err != nil {
 			return fmt.Errorf("failed to setup monitors: %w", err)
 		}
+		allCollectors := append(monitorCollectors, geoIpCollector)
 
 		// Register all collectors with Prometheus
 		registerCollectors(allCollectors)
