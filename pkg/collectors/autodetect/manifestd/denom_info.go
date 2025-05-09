@@ -17,7 +17,7 @@ import (
 type DenomInfoCollector struct {
 	grpcClient      *client.GRPCClient
 	denom           string
-	denomInfoDesc   *prometheus.Desc // Denom metadata
+	denomMetaDesc   *prometheus.Desc // Denom metadata
 	upDesc          *prometheus.Desc // gRPC query success
 	totalSupplyDesc *prometheus.Desc // Token supply
 	initialError    error
@@ -41,8 +41,8 @@ func NewDenomInfoCollector(client *client.GRPCClient, denom string) *DenomInfoCo
 		grpcClient:   client,
 		initialError: initialError,
 		denom:        denom,
-		denomInfoDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("manifest", "tokenomics", "denom_info"),
+		denomMetaDesc: prometheus.NewDesc(
+			prometheus.BuildFQName("manifest", "tokenomics", "denom_metadata"),
 			"Information about a Cosmos SDK denomination.",
 			[]string{"symbol", "denom", "name", "display"},
 			prometheus.Labels{"source": "grpc"},
@@ -64,7 +64,7 @@ func NewDenomInfoCollector(client *client.GRPCClient, denom string) *DenomInfoCo
 
 // Describe implements the prometheus.Collector interface.
 func (c *DenomInfoCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.denomInfoDesc
+	ch <- c.denomMetaDesc
 	ch <- c.totalSupplyDesc
 	ch <- c.upDesc
 }
@@ -75,7 +75,7 @@ func (c *DenomInfoCollector) Collect(ch chan<- prometheus.Metric) {
 	if err := collectors.ValidateClient(c.grpcClient, c.initialError); err != nil {
 		collectors.ReportUpMetric(ch, c.upDesc, 0) // Report gRPC down
 		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, err)
-		collectors.ReportInvalidMetric(ch, c.denomInfoDesc, err)
+		collectors.ReportInvalidMetric(ch, c.denomMetaDesc, err)
 		return
 	}
 
@@ -103,7 +103,7 @@ func (c *DenomInfoCollector) Collect(ch chan<- prometheus.Metric) {
 
 func (c *DenomInfoCollector) collectDenomMetadata(ch chan<- prometheus.Metric, resp *bankv1beta1.QueryDenomMetadataResponse, queryErr error) {
 	if queryErr != nil {
-		collectors.ReportInvalidMetric(ch, c.denomInfoDesc, queryErr)
+		collectors.ReportInvalidMetric(ch, c.denomMetaDesc, queryErr)
 		return
 	}
 	if resp == nil {
@@ -114,7 +114,7 @@ func (c *DenomInfoCollector) collectDenomMetadata(ch chan<- prometheus.Metric, r
 
 	if metadata != nil {
 		metric, err := prometheus.NewConstMetric(
-			c.denomInfoDesc,
+			c.denomMetaDesc,
 			prometheus.GaugeValue,
 			1, // Value is 1 to indicate presence/info
 			metadata.Symbol,
@@ -167,7 +167,7 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 }
 
 func init() {
-	RegisterCollectorFactory("denom_info", func(grpcClient *client.GRPCClient, extra ...interface{}) prometheus.Collector {
+	RegisterCollectorFactory("denom_metadata", func(grpcClient *client.GRPCClient, extra ...interface{}) prometheus.Collector {
 		return NewDenomInfoCollector(grpcClient, "umfx")
 	})
 }

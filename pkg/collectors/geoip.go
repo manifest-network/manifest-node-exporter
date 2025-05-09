@@ -16,7 +16,7 @@ import (
 type GeoIPCollector struct {
 	latitude  *prometheus.Desc
 	longitude *prometheus.Desc
-	info      *prometheus.Desc
+	metadata  *prometheus.Desc
 	client    *resty.Client
 }
 
@@ -58,8 +58,8 @@ func NewGeoIPCollector() *GeoIPCollector {
 			[]string{"ip"},
 			prometheus.Labels{"source": "geoip"},
 		),
-		info: prometheus.NewDesc(
-			prometheus.BuildFQName("manifest", "geo", "info"),
+		metadata: prometheus.NewDesc(
+			prometheus.BuildFQName("manifest", "geo", "metadata"),
 			"Node's geographical information",
 			[]string{"ip", "country_code", "country_name", "region_code", "region_name", "city", "zip_code"},
 			prometheus.Labels{"source": "geoip"},
@@ -70,35 +70,35 @@ func NewGeoIPCollector() *GeoIPCollector {
 func (c *GeoIPCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.latitude
 	ch <- c.longitude
-	ch <- c.info
+	ch <- c.metadata
 }
 
 func (c *GeoIPCollector) Collect(ch chan<- prometheus.Metric) {
 	ip, err := getPublicIP(c.client)
 	if err != nil {
-		ReportInvalidMetric(ch, c.info, fmt.Errorf("failed to get public ip address: %w", err))
+		ReportInvalidMetric(ch, c.metadata, fmt.Errorf("failed to get public ip address: %w", err))
 		return
 	}
 
 	maybeIp := net.ParseIP(ip)
 	if maybeIp == nil {
-		ReportInvalidMetric(ch, c.info, fmt.Errorf("invalid IP address: %s", ip))
+		ReportInvalidMetric(ch, c.metadata, fmt.Errorf("invalid IP address: %s", ip))
 		return
 	}
 
 	geoIP, err := getGeoIP(c.client, ip)
 	if err != nil {
-		ReportInvalidMetric(ch, c.info, err)
+		ReportInvalidMetric(ch, c.metadata, err)
 		return
 	}
 
 	if geoIP == nil {
-		ReportInvalidMetric(ch, c.info, fmt.Errorf("geoIP response is nil"))
+		ReportInvalidMetric(ch, c.metadata, fmt.Errorf("geoIP response is nil"))
 		return
 	}
 
 	geoMetric, err := prometheus.NewConstMetric(
-		c.info,
+		c.metadata,
 		prometheus.GaugeValue,
 		1,
 		ip,
