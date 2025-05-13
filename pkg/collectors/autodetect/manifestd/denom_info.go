@@ -2,7 +2,7 @@ package manifestd
 
 import (
 	"log/slog"
-	"strconv"
+	"math/big"
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
@@ -50,7 +50,7 @@ func NewDenomInfoCollector(client *client.GRPCClient, denom string) *DenomInfoCo
 		totalSupplyDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("manifest", "tokenomics", "total_supply"),
 			"Total supply of a specific denomination.",
-			[]string{"denom"},
+			[]string{"denom", "supply"},
 			prometheus.Labels{"source": "grpc"},
 		),
 		upDesc: prometheus.NewDesc(
@@ -145,19 +145,52 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 		return
 	}
 
-	amount, err := strconv.ParseFloat(coin.Amount, 64)
-	if err != nil {
-		parseErr := status.Errorf(codes.Internal, "failed to parse amount '%s' for denom '%s': %v", coin.Amount, coin.Denom, err)
-		slog.Warn("Failed to parse total supply amount", "denom", coin.Denom, "amount", coin.Amount, "error", err)
-		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, parseErr)
+	// Parse the amount string to a big.Int. `bigAmount` will hold the value of `utoken`.
+	bigAmount := new(big.Int)
+	_, ok := bigAmount.SetString(coin.Amount, 10)
+	if !ok {
+		slog.Warn("Failed to parse total supply amount", "denom", coin.Denom, "amount", coin.Amount)
+		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, status.Errorf(codes.Internal, "failed to parse amount '%s' for denom '%s'", coin.Amount, coin.Denom))
 		return
 	}
 
+	// We want the value of `token`, which is `utoken / decimal places`, which is 6 on the Manifest Network`.
+	divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
+	quotient := new(big.Int)
+	remainder := new(big.Int)
+	quotient, remainder = quotient.QuoRem(bigAmount, divisor, remainder)
+
+	// Verify if the division is exact. If not, log a warning and report an invalid metric.
+	if remainder.Cmp(big.NewInt(0)) != 0 {
+		slog.Warn("Division by 10^6 is not exact - fractional part truncated",
+			"denom", coin.Denom,
+			"remainder", remainder.String())
+		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, status.Errorf(codes.Internal, "failed to parse amount '%s' for denom '%s'", coin.Amount, coin.Denom))
+		return
+	}
+
+	var amount float64 = -1
+	if quotient.IsInt64() {
+		slog.Warn("Total scaled supply cannot be represented as int64")
+	} else {
+		// Convert the quotient to a float64 for Prometheus.
+		scaledFloat := new(big.Float).SetInt(quotient)
+		amount, _ = scaledFloat.Float64()
+	}
+
+	// Report the total supply metric.
+	// If the amount is -1, it indicates the value cannot be represented as an int64.
+	// In that case, the user can retrieve the supply from the metric's metadata.
+	//
+	// *IMPORTANT*
+	// The metric's metadata contains the supply of the token in the base denomination.
+	// The gauge, if not negative, contains the supply of the token in the display denomination.
 	metric, err := prometheus.NewConstMetric(
 		c.totalSupplyDesc,
 		prometheus.GaugeValue,
 		amount,
 		coin.Denom,
+		coin.Amount,
 	)
 	if err != nil {
 		slog.Error("Failed to create total supply metric", "denom", coin.Denom, "error", err)
