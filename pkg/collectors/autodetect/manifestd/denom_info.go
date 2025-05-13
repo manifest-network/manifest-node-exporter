@@ -168,7 +168,10 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 		slog.Warn("Total scaled supply cannot be represented as int64")
 	}
 
-	amount, _ = resultFloat.Float64()
+	amount, exact := resultFloat.Float64()
+	if !exact {
+		slog.Warn("Inexact conversion from big.Float to float64", "denom", coin.Denom, "amount", coin.Amount)
+	}
 
 	// *IMPORTANT*
 	// The metric's metadata contains the supply of the token in the base denomination.
