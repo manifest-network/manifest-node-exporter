@@ -2,7 +2,6 @@ package manifestd
 
 import (
 	"log/slog"
-	"strconv"
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
@@ -50,7 +49,7 @@ func NewDenomInfoCollector(client *client.GRPCClient, denom string) *DenomInfoCo
 		totalSupplyDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("manifest", "tokenomics", "total_supply"),
 			"Total supply of a specific denomination.",
-			[]string{"denom"},
+			[]string{"denom", "supply"},
 			prometheus.Labels{"source": "grpc"},
 		),
 		upDesc: prometheus.NewDesc(
@@ -145,19 +144,15 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 		return
 	}
 
-	amount, err := strconv.ParseFloat(coin.Amount, 64)
-	if err != nil {
-		parseErr := status.Errorf(codes.Internal, "failed to parse amount '%s' for denom '%s': %v", coin.Amount, coin.Denom, err)
-		slog.Warn("Failed to parse total supply amount", "denom", coin.Denom, "amount", coin.Amount, "error", err)
-		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, parseErr)
-		return
-	}
-
+	// *IMPORTANT*
+	// The metric's metadata contains the supply of the token in the base denomination.
+	// The gauge value is set to 1 to indicate the presence of the metric.
 	metric, err := prometheus.NewConstMetric(
 		c.totalSupplyDesc,
 		prometheus.GaugeValue,
-		amount,
+		1, // Let the client handle the metadata.
 		coin.Denom,
+		coin.Amount,
 	)
 	if err != nil {
 		slog.Error("Failed to create total supply metric", "denom", coin.Denom, "error", err)
