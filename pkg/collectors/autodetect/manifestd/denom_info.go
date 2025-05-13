@@ -2,8 +2,6 @@ package manifestd
 
 import (
 	"log/slog"
-	"math"
-	"math/big"
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
@@ -146,40 +144,13 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 		return
 	}
 
-	// Parse the amount string to a big.Int. `bigAmount` will hold the value of `utoken`.
-	bigAmount := new(big.Int)
-	_, ok := bigAmount.SetString(coin.Amount, 10)
-	if !ok {
-		slog.Warn("Failed to parse total supply amount", "denom", coin.Denom, "amount", coin.Amount)
-		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, status.Errorf(codes.Internal, "failed to parse amount '%s' for denom '%s'", coin.Amount, coin.Denom))
-		return
-	}
-
-	// We want the value of `token`, which is `utoken / decimal places`, which is 6 on the Manifest Network`.
-	divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
-
-	resultFloat := new(big.Float).SetInt(bigAmount)
-	resultFloat.Quo(resultFloat, new(big.Float).SetInt(divisor))
-
-	var amount float64 = -1
-	maxInt64Float := new(big.Float).SetInt64(math.MaxInt64)
-	if resultFloat.Cmp(maxInt64Float) > 0 {
-		// Netdata will not be able to represent this value as an int64.
-		slog.Warn("Total scaled supply cannot be represented as int64")
-	}
-
-	amount, exact := resultFloat.Float64()
-	if !exact {
-		slog.Warn("Inexact conversion from big.Float to float64", "denom", coin.Denom, "amount", coin.Amount)
-	}
-
 	// *IMPORTANT*
 	// The metric's metadata contains the supply of the token in the base denomination.
-	// The gauge, if not negative, contains the supply of the token in the display denomination.
+	// The gauge value is set to 1 to indicate the presence of the metric.
 	metric, err := prometheus.NewConstMetric(
 		c.totalSupplyDesc,
 		prometheus.GaugeValue,
-		amount,
+		1, // Let the client handle the metadata.
 		coin.Denom,
 		coin.Amount,
 	)
