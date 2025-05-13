@@ -2,6 +2,7 @@ package manifestd
 
 import (
 	"log/slog"
+	"math"
 	"math/big"
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
@@ -156,32 +157,19 @@ func (c *DenomInfoCollector) collectTotalSupply(ch chan<- prometheus.Metric, res
 
 	// We want the value of `token`, which is `utoken / decimal places`, which is 6 on the Manifest Network`.
 	divisor := new(big.Int).Exp(big.NewInt(10), big.NewInt(6), nil)
-	quotient := new(big.Int)
-	remainder := new(big.Int)
-	quotient, remainder = quotient.QuoRem(bigAmount, divisor, remainder)
 
-	// Verify if the division is exact. If not, log a warning and report an invalid metric.
-	if remainder.Cmp(big.NewInt(0)) != 0 {
-		slog.Warn("Division by 10^6 is not exact - fractional part truncated",
-			"denom", coin.Denom,
-			"remainder", remainder.String())
-		collectors.ReportInvalidMetric(ch, c.totalSupplyDesc, status.Errorf(codes.Internal, "failed to parse amount '%s' for denom '%s'", coin.Amount, coin.Denom))
-		return
-	}
+	resultFloat := new(big.Float).SetInt(bigAmount)
+	resultFloat.Quo(resultFloat, new(big.Float).SetInt(divisor))
 
 	var amount float64 = -1
-	if quotient.IsInt64() {
+	maxInt64Float := new(big.Float).SetInt64(math.MaxInt64)
+	if resultFloat.Cmp(maxInt64Float) > 0 {
+		// Netdata will not be able to represent this value as an int64.
 		slog.Warn("Total scaled supply cannot be represented as int64")
-	} else {
-		// Convert the quotient to a float64 for Prometheus.
-		scaledFloat := new(big.Float).SetInt(quotient)
-		amount, _ = scaledFloat.Float64()
 	}
 
-	// Report the total supply metric.
-	// If the amount is -1, it indicates the value cannot be represented as an int64.
-	// In that case, the user can retrieve the supply from the metric's metadata.
-	//
+	amount, _ = resultFloat.Float64()
+
 	// *IMPORTANT*
 	// The metric's metadata contains the supply of the token in the base denomination.
 	// The gauge, if not negative, contains the supply of the token in the display denomination.
