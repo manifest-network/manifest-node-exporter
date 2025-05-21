@@ -1,4 +1,4 @@
-package cmd
+package manifest_node_exporter
 
 import (
 	"context"
