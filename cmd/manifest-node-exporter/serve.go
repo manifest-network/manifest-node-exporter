@@ -10,13 +10,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
 	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect"
 	_ "github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect/manifestd" // RegisterMonitor the manifestd monitor (side-effect)
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // serveCmd represents the serve command
@@ -33,9 +34,8 @@ var serveCmd = &cobra.Command{
 
 		config := pkg.LoadServeConfig()
 
-		rootCtx, rootCancel := context.WithCancel(context.Background())
+		rootCtx, rootCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer rootCancel()
-		handleInterrupt(rootCancel)
 
 		geoIpCollector := collectors.NewGeoIPCollector()
 
@@ -134,17 +134,6 @@ func registerCollectors(collectors []prometheus.Collector) {
 			slog.Info("Successfully registered collector with Prometheus.", "collector_type", collectorType)
 		}
 	}
-}
-
-// handleInterrupt handles interrupt signals for graceful shutdown.
-func handleInterrupt(cancel context.CancelFunc) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		slog.Info("Received interrupt signal, shutting down...")
-		cancel()
-	}()
 }
 
 func init() {

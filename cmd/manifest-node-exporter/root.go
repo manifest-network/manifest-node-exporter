@@ -1,8 +1,9 @@
 package manifest_node_exporter
 
 import (
-	"github.com/liftedinit/manifest-node-exporter/cmd"
 	"github.com/spf13/cobra"
+
+	"github.com/liftedinit/manifest-node-exporter/cmd"
 )
 
 var Version = "dev"

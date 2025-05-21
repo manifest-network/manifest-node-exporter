@@ -4,18 +4,25 @@
 package manifestd
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"math/big"
+	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
-	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"resty.dev/v3"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg"
+	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
+	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
 )
 
 type ExcludedSupplyCollector struct {
@@ -68,44 +75,56 @@ func (c *ExcludedSupplyCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	var addrs []string
-	resp, err := c.restyClient.R().
-		SetResult(&addrs).
-		Get(c.addrsEndpoint)
-	if err != nil || resp.IsError() {
+	if err := utils.DoJSONRequest(c.restyClient, c.addrsEndpoint, &addrs); err != nil {
 		slog.Error("Failed to fetch addresses", "endpoint", c.addrsEndpoint, "error", err)
 		collectors.ReportUpMetric(ch, c.upDesc, 0)
 		collectors.ReportInvalidMetric(ch, c.excludedSupplyDesc, err)
 		return
 	}
 
+	const rpcTimeout = 2 * time.Second
+	eg, egCtx := errgroup.WithContext(context.Background())
+	results := make(chan *big.Int, len(addrs))
+
 	bankClient := bankv1beta1.NewQueryClient(c.grpcClient.Conn)
-	total := big.NewInt(0)
-	success := true
-
 	for _, addr := range addrs {
-		resp, err := bankClient.Balance(c.grpcClient.Ctx, &bankv1beta1.QueryBalanceRequest{
-			Address: addr,
-			Denom:   c.denom,
+		addr := addr
+		eg.Go(func() error {
+			callCtx, cancel := context.WithTimeout(egCtx, rpcTimeout)
+			defer cancel()
+
+			resp, err := bankClient.Balance(callCtx, &bankv1beta1.QueryBalanceRequest{
+				Address: addr,
+				Denom:   c.denom,
+			})
+			if err != nil {
+				slog.Error("Failed to query balance", "address", addr, "error", err)
+				return err
+			}
+			if v, ok := new(big.Int).SetString(resp.Balance.Amount, 10); ok {
+				results <- v
+			} else {
+				return fmt.Errorf("invalid coin amount for address %s: %s", addr, resp.Balance.Amount)
+			}
+
+			return nil
 		})
-		if err != nil {
-			slog.Error("Failed to query Balance", "address", addr, "error", err)
-			success = false
-			continue
-		}
-		if v, ok := new(big.Int).SetString(resp.Balance.Amount, 10); ok {
-			total.Add(total, v)
-		} else {
-			slog.Error("Invalid coin amount", "address", addr, "denom", resp.Balance.Denom, "amount", resp.Balance.Amount)
-			success = false
-		}
 	}
 
-	upVal := 0.0
-	if success {
-		upVal = 1.0
+	if err := eg.Wait(); err != nil {
+		collectors.ReportUpMetric(ch, c.upDesc, 0)
+		collectors.ReportInvalidMetric(ch, c.excludedSupplyDesc, err)
+		close(results)
+		return
 	}
-	collectors.ReportUpMetric(ch, c.upDesc, upVal)
+	close(results)
 
+	total := new(big.Int)
+	for v := range results {
+		total.Add(total, v)
+	}
+
+	collectors.ReportUpMetric(ch, c.upDesc, 1)
 	m, err := prometheus.NewConstMetric(c.excludedSupplyDesc, prometheus.GaugeValue, 1, total.String(), c.denom)
 	if err != nil {
 		slog.Error("Failed to create excluded supply metric", "error", err)

@@ -10,12 +10,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect"
-	_ "github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect/manifestd" // RegisterMonitor the manifestd monitor (side-effect)
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg"
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect"
+	_ "github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect/manifestd" // RegisterMonitor the manifestd monitor (side-effect)
 )
 
 // serveCmd represents the serve command
@@ -32,9 +33,8 @@ var serveCmd = &cobra.Command{
 
 		config := pkg.LoadServeConfig()
 
-		rootCtx, rootCancel := context.WithCancel(context.Background())
+		rootCtx, rootCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer rootCancel()
-		handleInterrupt(rootCancel)
 
 		monitorCollectors, err := setupMonitors(rootCtx)
 		if err != nil {
@@ -131,22 +131,13 @@ func registerCollectors(collectors []prometheus.Collector) {
 	}
 }
 
-// handleInterrupt handles interrupt signals for graceful shutdown.
-func handleInterrupt(cancel context.CancelFunc) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		slog.Info("Received interrupt signal, shutting down...")
-		cancel()
-	}()
-}
-
 func init() {
 	serveCmd.Flags().String("listen-address", "0.0.0.0:2112", "Address to listen on")
 	serveCmd.Flags().String("addrs-endpoint", "", "HTTP endpoint to fetch address list")
 
-	_ = serveCmd.MarkFlagRequired("addrs-endpoint")
+	if err := serveCmd.MarkFlagRequired("addrs-endpoint"); err != nil {
+		slog.Error("Failed to mark addrs-endpoint as required", "error", err)
+	}
 
 	if err := viper.BindPFlags(serveCmd.Flags()); err != nil {
 		slog.Error("Failed to bind serveCmd flags", "error", err)

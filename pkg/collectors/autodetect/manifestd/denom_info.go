@@ -7,11 +7,12 @@ import (
 	"log/slog"
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
 )
 
 // DenomInfoCollector collects denom metadata and total supply metrics from the Cosmos SDK bank module via gRPC.

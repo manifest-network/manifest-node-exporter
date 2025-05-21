@@ -26,7 +26,9 @@ var (
 func BindGlobalFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringP("logLevel", "l", "info",
 		fmt.Sprintf("set log level (%s)", validLogLevelsStr))
-	viper.BindPFlags(cmd.PersistentFlags())
+	if err := viper.BindPFlags(cmd.PersistentFlags()); err != nil {
+		slog.Error("Failed to bind flags", "error", err)
+	}
 }
 
 // InitConfig loads config file and environment settings.

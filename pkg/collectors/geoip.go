@@ -1,16 +1,15 @@
 package collectors
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
-	"net/http"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/prometheus/client_golang/prometheus"
 	"resty.dev/v3"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg"
+	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
 )
 
 type GeoIPCollector struct {
@@ -140,50 +139,18 @@ func (c *GeoIPCollector) Collect(ch chan<- prometheus.Metric) {
 }
 
 func getPublicIP(client *resty.Client) (string, error) {
-	resp, err := client.R().Get(ipifyURL)
-	if err != nil {
+	ipResp := new(IPResponse)
+	if err := utils.DoJSONRequest(client, ipifyURL, ipResp); err != nil {
 		return "", fmt.Errorf("error getting public ip: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode() != http.StatusOK {
-		return "", fmt.Errorf("error getting public ip: %s", resp.Status())
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("error reading response body: %w", err)
-	}
-
-	var ipResp IPResponse
-	if err := json.Unmarshal(body, &ipResp); err != nil {
-		return "", fmt.Errorf("error unmarshalling response body: %w", err)
-	}
-
 	return ipResp.IP, nil
 }
 
 func getGeoIP(client *resty.Client, ip string) (*GeoIPResponse, error) {
+	geoIP := new(GeoIPResponse)
 	url := fmt.Sprintf(freeGeoIPURLFormat, ip)
-	resp, err := client.R().Get(url)
-	if err != nil {
+	if err := utils.DoJSONRequest(client, url, geoIP); err != nil {
 		return nil, fmt.Errorf("error getting geoip: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("error getting geoip: %s", resp.Status())
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %w", err)
-	}
-
-	var geoIP GeoIPResponse
-	if err := json.Unmarshal(body, &geoIP); err != nil {
-		return nil, fmt.Errorf("error unmarshalling response body: %w", err)
-	}
-
-	return &geoIP, nil
+	return geoIP, nil
 }
