@@ -8,7 +8,9 @@ before:
     - go mod tidy
 
 builds:
-  - main: ./main.go
+  - id: manifest-node-exporter
+    binary: manifest-node-exporter
+    main: ./cmd-bin/manifest-node-exporter/main.go
     env:
       - CGO_ENABLED=0
     goos:
@@ -22,9 +24,35 @@ builds:
         goarch: amd64
       - goos: linux
         goarch: arm64
+    tags:
+      - manifest
+      - manifest_node_exporter
     ldflags:
       - -s -w
-      - -X github.com/liftedinit/manifest-node-exporter/cmd/RootCmd.Version={{ .Version }}
+      - -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-node-exporter.Version={{ .Version }}
+
+  - id: manifest-current-supply-exporter
+    binary: manifest-current-supply-exporter
+    main: ./cmd-bin/manifest-current-supply-exporter/main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
+      - goos: linux
+        goarch: arm64
+    tags:
+      - manifest
+      - manifest_current_supply_exporter
+    ldflags:
+      - -s -w
+      - -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-current-supply-exporter.Version={{ .Version }}
 
 archives:
   - formats: tar.gz
