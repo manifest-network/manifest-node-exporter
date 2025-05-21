@@ -1,3 +1,6 @@
+//go:build manifest_node_exporter
+// +build manifest_node_exporter
+
 package manifestd
 
 import (

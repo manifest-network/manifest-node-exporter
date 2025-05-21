@@ -7,8 +7,8 @@ BUILD_FLAGS := -ldflags "\
 #### Build ####
 build: ## Build the binary
 	@echo "--> Building development binary (version: $(VERSION))"
-	@go build $(BUILD_FLAGS) -o bin/manifest-node-exporter ./cmd-bin/manifest-node-exporter/main.go
-	@go build $(BUILD_FLAGS) -o bin/manifest-current-supply-exporter ./cmd-bin/manifest-current-supply-exporter/main.go
+	@go build $(BUILD_FLAGS) -tags manifest_node_exporter -o bin/manifest-node-exporter ./cmd-bin/manifest-node-exporter/main.go
+	@go build $(BUILD_FLAGS) -tags manifest_current_supply_exporter -o bin/manifest-current-supply-exporter ./cmd-bin/manifest-current-supply-exporter/main.go
 
 .PHONY: build
 

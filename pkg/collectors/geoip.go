@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"time"
 
+	"github.com/liftedinit/manifest-node-exporter/pkg"
 	"github.com/prometheus/client_golang/prometheus"
 	"resty.dev/v3"
 )
@@ -37,15 +37,13 @@ type GeoIPResponse struct {
 }
 
 const (
-	clientTimeout      = 5 * time.Second // Timeout for HTTP requests
-	clientRetry        = 3               // Number of retries for HTTP requests
 	ipifyURL           = "https://api.ipify.org?format=json"
 	freeGeoIPURLFormat = "https://freegeoip.live/json/%s"
 )
 
 func NewGeoIPCollector() *GeoIPCollector {
 	return &GeoIPCollector{
-		client: resty.New().SetHeader("Accept", "application/json").SetTimeout(clientTimeout).SetRetryCount(clientRetry),
+		client: resty.New().SetHeader("Accept", "application/json").SetTimeout(pkg.ClientTimeout).SetRetryCount(pkg.ClientRetry),
 		latitude: prometheus.NewDesc(
 			prometheus.BuildFQName("manifest", "geo", "latitude"),
 			"Node's geographical latitude",
