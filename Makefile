@@ -33,7 +33,7 @@ coverage: ## Run tests with coverage
 	@echo "--> Running short tests with coverage"
 	@go test -v -short -timeout 30m -race -covermode=atomic -cover -cpu=$$(nproc) -coverpkg=${COV_PKG} ./... -args -test.gocoverdir="${COV_UNIT}"
 	@echo "--> Running end-to-end tests with coverage"
-	-@go test -v -race -timeout 30m -race -covermode=atomic -cover -cpu=$$(nproc) -coverpkg=${COV_PKG} -args -test.gocoverdir="${COV_E2E}"
+	-@go test -v -race -timeout 30m -covermode=atomic -cover -cpu=$$(nproc) -coverpkg=${COV_PKG} -args -test.gocoverdir="${COV_E2E}"
 	@echo "--> Merging coverage reports"
 	@go tool covdata merge -i=${COV_UNIT},${COV_E2E} -o ${COV_ROOT}
 	@echo "--> Converting binary coverage report to text format"
