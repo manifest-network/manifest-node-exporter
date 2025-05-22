@@ -1,4 +1,4 @@
-package manifest_current_supply_exporter
+package manifest_excluded_supply_exporter
 
 import (
 	"github.com/spf13/cobra"
@@ -10,9 +10,9 @@ var Version = "dev"
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:     "manifest-current-supply-exporter",
-	Short:   "Manifest Prometheus current supply exporter",
-	Long:    `Export Prometheus current supply.`,
+	Use:     "manifest-excluded-supply-exporter",
+	Short:   "Manifest Prometheus excluded supply exporter",
+	Long:    `Export Prometheus excluded supply. The excluded supply is subtracted from the total supply to obtain the circulating supply`,
 	Version: Version,
 }
 
@@ -22,5 +22,5 @@ func init() {
 
 // Execute is called by main.main().
 func Execute() {
-	cmd.Execute(RootCmd, "manifest-current-supply-exporter")
+	cmd.Execute(RootCmd, "manifest-excluded-supply-exporter")
 }

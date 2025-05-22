@@ -1,4 +1,4 @@
-package manifest_current_supply_exporter
+package manifest_excluded_supply_exporter
 
 import (
 	"context"
@@ -22,14 +22,14 @@ import (
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
 	Use:   "serve [flags]",
-	Short: "Serve current supply metrics",
+	Short: "Serve excluded supply metrics",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if parent := cmd.Parent(); parent != nil && parent.PreRunE != nil {
 			if err := parent.PreRunE(parent, args); err != nil {
 				return err
 			}
 		}
-		slog.Info("Starting manifest-current-supply-exporter")
+		slog.Info("Starting manifest-excluded-supply-exporter")
 
 		config := pkg.LoadServeConfig()
 

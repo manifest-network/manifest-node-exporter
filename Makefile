@@ -1,14 +1,14 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_FLAGS := -ldflags "\
   -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-node-exporter.Version=$(VERSION) \
-  -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-current-supply-exporter.Version=$(VERSION)" \
+  -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-excluded-supply-exporter.Version=$(VERSION)" \
   -tags manifest
 
 #### Build ####
 build: ## Build the binary
 	@echo "--> Building development binary (version: $(VERSION))"
 	@go build $(BUILD_FLAGS) -tags manifest_node_exporter -o bin/manifest-node-exporter ./cmd-bin/manifest-node-exporter/main.go
-	@go build $(BUILD_FLAGS) -tags manifest_current_supply_exporter -o bin/manifest-current-supply-exporter ./cmd-bin/manifest-current-supply-exporter/main.go
+	@go build $(BUILD_FLAGS) -tags manifest_excluded_supply_exporter -o bin/manifest-excluded-supply-exporter ./cmd-bin/manifest-excluded-supply-exporter/main.go
 
 .PHONY: build
 

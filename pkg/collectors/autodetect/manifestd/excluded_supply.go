@@ -1,5 +1,5 @@
-//go:build manifest_current_supply_exporter
-// +build manifest_current_supply_exporter
+//go:build manifest_excluded_supply_exporter
+// +build manifest_excluded_supply_exporter
 
 package manifestd
 
