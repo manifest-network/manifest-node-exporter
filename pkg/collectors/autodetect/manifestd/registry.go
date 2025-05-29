@@ -4,9 +4,10 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
 	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ManifestdCollectorFactory is a function type that creates a prometheus.Collector.

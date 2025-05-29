@@ -8,8 +8,9 @@ require (
 	github.com/shirou/gopsutil/v4 v4.25.4
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
-	github.com/stretchr/testify v1.10.0
+	golang.org/x/sync v0.13.0
 	google.golang.org/grpc v1.72.0
+	resty.dev/v3 v3.0.0-beta.3
 )
 
 require (
@@ -50,5 +51,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250422160041-2d3770c4ea7f // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	resty.dev/v3 v3.0.0-beta.2 // indirect
 )

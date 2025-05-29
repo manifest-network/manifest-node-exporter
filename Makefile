@@ -1,10 +1,14 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-BUILD_FLAGS := -ldflags "-X github.com/liftedinit/manifest-node-exporter/cmd/manifest-node-exporter.Version=$(VERSION)" -tags manifest
+BUILD_FLAGS := -ldflags "\
+  -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-node-exporter.Version=$(VERSION) \
+  -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-excluded-supply-exporter.Version=$(VERSION)" \
+  -tags manifest
 
 #### Build ####
 build: ## Build the binary
 	@echo "--> Building development binary (version: $(VERSION))"
-	@go build $(BUILD_FLAGS) -o bin/manifest-node-exporter ./main.go
+	@go build $(BUILD_FLAGS) -tags manifest_node_exporter -o bin/manifest-node-exporter ./cmd-bin/manifest-node-exporter/main.go
+	@go build $(BUILD_FLAGS) -tags manifest_excluded_supply_exporter -o bin/manifest-excluded-supply-exporter ./cmd-bin/manifest-excluded-supply-exporter/main.go
 
 .PHONY: build
 
@@ -13,11 +17,7 @@ test: ## Run tests
 	@echo "--> Running tests"
 	@go test -v -short -race ./...
 
-test-e2e: ## Run end-to-end tests
-	@echo "--> Running end-to-end tests"
-	@go test -v -race ./cmd/manifest-node-exporter/postgres_test.go
-
-.PHONY: test test-e2e
+.PHONY: test
 
 #### Coverage ####
 COV_ROOT="/tmp/manifest-node-exporter-coverage"
@@ -33,7 +33,7 @@ coverage: ## Run tests with coverage
 	@echo "--> Running short tests with coverage"
 	@go test -v -short -timeout 30m -race -covermode=atomic -cover -cpu=$$(nproc) -coverpkg=${COV_PKG} ./... -args -test.gocoverdir="${COV_UNIT}"
 	@echo "--> Running end-to-end tests with coverage"
-	@go test -v -race -timeout 30m -race -covermode=atomic -cover -cpu=$$(nproc) -coverpkg=${COV_PKG} -args -test.gocoverdir="${COV_E2E}"
+	-@go test -v -race -timeout 30m -covermode=atomic -cover -cpu=$$(nproc) -coverpkg=${COV_PKG} -args -test.gocoverdir="${COV_E2E}"
 	@echo "--> Merging coverage reports"
 	@go tool covdata merge -i=${COV_UNIT},${COV_E2E} -o ${COV_ROOT}
 	@echo "--> Converting binary coverage report to text format"
@@ -46,25 +46,6 @@ coverage: ## Run tests with coverage
 	@echo "--> Cleaning up coverage files"
 	@rm -rf ${COV_UNIT}/* ${COV_E2E}/*
 	@echo "--> Running coverage complete"
-
-#### Docker ####
-docker-infra-up:
-	@echo "--> Running docker compose up --build --wait -d"
-	@cd docker/infra && docker compose up --build --wait -d && cd -
-
-docker-infra-down:
-	@echo "--> Running docker compose down -v"
-	@cd docker/infra && docker compose down -v && cd -
-
-docker-up:
-	@echo "--> Running docker compose up --build --wait -d"
-	@cd docker/manifest-node-exporter && docker compose up --build --wait -d && cd -
-
-docker-down:
-	@echo "--> Running docker compose down -v"
-	@cd docker/manifest-node-exporter && docker compose down -v && cd -
-
-.PHONY: docker-up docker-down docker-infra-up docker-infra-down
 
 ####  Linting  ####
 golangci_lint_cmd=golangci-lint

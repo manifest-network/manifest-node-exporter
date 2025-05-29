@@ -8,10 +8,11 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/liftedinit/manifest-node-exporter/pkg/client"
 	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect"
 	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const processName = "manifestd"

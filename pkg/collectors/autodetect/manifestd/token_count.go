@@ -1,3 +1,6 @@
+//go:build manifest_node_exporter
+// +build manifest_node_exporter
+
 package manifestd
 
 import (
@@ -5,11 +8,12 @@ import (
 
 	bankv1beta1 "cosmossdk.io/api/cosmos/bank/v1beta1"
 	queryv1beta1 "cosmossdk.io/api/cosmos/base/query/v1beta1"
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
 )
 
 // TokenCountCollector collects the total number of denominations from the Cosmos SDK bank module via gRPC.

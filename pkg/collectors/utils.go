@@ -3,10 +3,11 @@ package collectors
 import (
 	"log/slog"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/liftedinit/manifest-node-exporter/pkg/client"
 )
 
 func ReportUpMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, value float64) {
