@@ -37,14 +37,20 @@ var serveCmd = &cobra.Command{
 		rootCtx, rootCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer rootCancel()
 
-		geoIpCollector := collectors.NewGeoIPCollector()
+		var allCollectors []prometheus.Collector
+		if config.IpBaseKey == "" {
+			slog.Warn("No ipbase API key specified. Skipping GeoIP collection.")
+		} else {
+			geoIpCollector := collectors.NewGeoIPCollector(config.IpBaseKey, config.StateFile)
+			allCollectors = append(allCollectors, geoIpCollector)
+		}
 
 		// Setup process monitors and fetch all registered collectors
 		monitorCollectors, err := setupMonitors(rootCtx)
 		if err != nil {
 			return fmt.Errorf("failed to setup monitors: %w", err)
 		}
-		allCollectors := append(monitorCollectors, geoIpCollector)
+		allCollectors = append(allCollectors, monitorCollectors...)
 
 		// Register all collectors with Prometheus
 		registerCollectors(allCollectors)
@@ -138,6 +144,8 @@ func registerCollectors(collectors []prometheus.Collector) {
 
 func init() {
 	serveCmd.Flags().String("listen-address", "0.0.0.0:2112", "Address to listen on")
+	serveCmd.Flags().String("ipbase-key", "", "IPBase API key to use for GeoIP lookup")
+	serveCmd.Flags().String("state-file", "./state.json", "Path to the state file for GeoIP data persistence")
 
 	if err := viper.BindPFlags(serveCmd.Flags()); err != nil {
 		slog.Error("Failed to bind serveCmd flags", "error", err)
