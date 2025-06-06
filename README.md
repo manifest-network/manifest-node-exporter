@@ -33,6 +33,8 @@ The exporter will start a Prometheus metrics server on `0.0.0.0:2112` by default
 |---------------------|-------------------------------------------------------------------------------------------|
 | `-h`, `--help`      | help for serve                                                                           |
 | `--listen-address` | Address to listen on for Prometheus metrics. Default is `0.0.0.0:2112`.                |
+| `--ipbase-key` | API key for IPBase to get geographical information. If not set, geo info will not be collected. |
+| `--state-file` | Path to the state file where the exporter will store its state. Default is `./state.json`. |
 
 ## Metrics
 

@@ -1,9 +1,14 @@
 package collectors
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"net"
+	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"resty.dev/v3"
@@ -17,32 +22,73 @@ type GeoIPCollector struct {
 	longitude *prometheus.Desc
 	metadata  *prometheus.Desc
 	client    *resty.Client
+	key       string
+	stateFile string
 }
 
 type IPResponse struct {
 	IP string `json:"ip"`
 }
 
+// GeoIPResponse represents the top‐level JSON returned by ipbase.
 type GeoIPResponse struct {
-	IP          string  `json:"ip"`
-	CountryCode string  `json:"country_code"`
-	CountryName string  `json:"country_name"`
-	RegionCode  string  `json:"region_code"`
-	RegionName  string  `json:"region_name"`
-	City        string  `json:"city"`
-	ZipCode     string  `json:"zip_code"`
-	Latitude    float64 `json:"latitude"`
-	Longitude   float64 `json:"longitude"`
+	Data GeoIPData `json:"data"`
+}
+
+// GeoIPData holds the “ip” string and the nested “location” object.
+type GeoIPData struct {
+	IP       string        `json:"ip"`
+	Location GeoIPLocation `json:"location"`
+}
+
+// GeoIPLocation holds country, region, city and zip.
+// We only include the fields you asked for; all other JSON keys are ignored.
+type GeoIPLocation struct {
+	Latitude  float64      `json:"latitude"`
+	Longitude float64      `json:"longitude"`
+	Country   GeoIPCountry `json:"country"`
+	Region    GeoIPRegion  `json:"region"`
+	City      GeoIPCity    `json:"city"`
+	Zip       string       `json:"zip"`
+}
+
+// GeoIPCountry contains country code and name.
+type GeoIPCountry struct {
+	Alpha2 string `json:"alpha2"`
+	Name   string `json:"name"`
+}
+
+// GeoIPRegion contains region code and name.
+type GeoIPRegion struct {
+	Alpha2 string `json:"alpha2"`
+	Name   string `json:"name"`
+}
+
+// GeoIPCity contains just the city name.
+type GeoIPCity struct {
+	Name string `json:"name"`
+}
+
+type cacheState struct {
+	IP        string        `json:"ip"`
+	Geo       GeoIPResponse `json:"geo"`
+	NextFetch time.Time     `json:"next_fetch"`
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
 
 const (
-	ipifyURL           = "https://api.ipify.org?format=json"
-	freeGeoIPURLFormat = "https://freegeoip.live/json/%s"
+	ipifyURL  = "https://api.ipify.org?format=json"
+	ipBaseUrl = "https://api.ipbase.com/v2/info?ip=%s&apikey=%s"
 )
 
-func NewGeoIPCollector() *GeoIPCollector {
+func NewGeoIPCollector(key, stateFile string) *GeoIPCollector {
 	return &GeoIPCollector{
-		client: resty.New().SetHeader("Accept", "application/json").SetTimeout(pkg.ClientTimeout).SetRetryCount(pkg.ClientRetry),
+		client:    resty.New().SetHeader("Accept", "application/json").SetTimeout(pkg.ClientTimeout).SetRetryCount(pkg.ClientRetry),
+		key:       key,
+		stateFile: stateFile,
 		latitude: prometheus.NewDesc(
 			prometheus.BuildFQName("manifest", "geo", "latitude"),
 			"Node's geographical latitude",
@@ -64,6 +110,30 @@ func NewGeoIPCollector() *GeoIPCollector {
 	}
 }
 
+func (c *GeoIPCollector) loadState() (*cacheState, error) {
+	data, err := os.ReadFile(c.stateFile)
+	if err != nil {
+		return nil, err
+	}
+	var st cacheState
+	if err := json.Unmarshal(data, &st); err != nil {
+		return nil, err
+	}
+	return &st, nil
+}
+
+func (c *GeoIPCollector) saveState(st *cacheState) error {
+	dir := filepath.Dir(c.stateFile)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(st, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(c.stateFile, data, 0o644)
+}
+
 func (c *GeoIPCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.latitude
 	ch <- c.longitude
@@ -83,15 +153,28 @@ func (c *GeoIPCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	geoIP, err := getGeoIP(c.client, ip)
-	if err != nil {
-		ReportInvalidMetric(ch, c.metadata, err)
-		return
-	}
+	// Update the GeoIP info if the IP has changed or if the cache is expired.
+	// The cache is valid for one month, with a random jitter to avoid all nodes updating at the same time.
+	now := time.Now()
+	var geoIP *GeoIPResponse
+	st, err := c.loadState()
+	useCache := err == nil && st.IP == ip && now.Before(st.NextFetch)
 
-	if geoIP == nil {
-		ReportInvalidMetric(ch, c.metadata, fmt.Errorf("geoIP response is nil"))
-		return
+	if useCache {
+		geoIP = &st.Geo
+	} else {
+		geoIP, err = getGeoIP(c.client, ip, c.key)
+		if err != nil {
+			ReportInvalidMetric(ch, c.metadata, err)
+			return
+		}
+		nextMonth := now.AddDate(0, 1, 0)
+		dur := nextMonth.Sub(now)
+		jitter := time.Duration(rand.Int63n(int64(dur)))
+		newState := &cacheState{IP: ip, Geo: *geoIP, NextFetch: now.Add(jitter)}
+		if err := c.saveState(newState); err != nil {
+			slog.Error("failed to save geoip state", "error", err)
+		}
 	}
 
 	geoMetric, err := prometheus.NewConstMetric(
@@ -99,12 +182,12 @@ func (c *GeoIPCollector) Collect(ch chan<- prometheus.Metric) {
 		prometheus.GaugeValue,
 		1,
 		ip,
-		geoIP.CountryCode,
-		geoIP.CountryName,
-		geoIP.RegionCode,
-		geoIP.RegionName,
-		geoIP.City,
-		geoIP.ZipCode,
+		geoIP.Data.Location.Country.Alpha2,
+		geoIP.Data.Location.Country.Name,
+		geoIP.Data.Location.Region.Alpha2,
+		geoIP.Data.Location.Region.Name,
+		geoIP.Data.Location.City.Name,
+		geoIP.Data.Location.Zip,
 	)
 	if err != nil {
 		slog.Error("Failed to create geo metric", "error", err)
@@ -114,7 +197,7 @@ func (c *GeoIPCollector) Collect(ch chan<- prometheus.Metric) {
 	latMetric, err := prometheus.NewConstMetric(
 		c.latitude,
 		prometheus.GaugeValue,
-		geoIP.Latitude,
+		geoIP.Data.Location.Latitude,
 		ip,
 	)
 	if err != nil {
@@ -125,7 +208,7 @@ func (c *GeoIPCollector) Collect(ch chan<- prometheus.Metric) {
 	lonMetric, err := prometheus.NewConstMetric(
 		c.longitude,
 		prometheus.GaugeValue,
-		geoIP.Longitude,
+		geoIP.Data.Location.Longitude,
 		ip,
 	)
 	if err != nil {
@@ -146,9 +229,9 @@ func getPublicIP(client *resty.Client) (string, error) {
 	return ipResp.IP, nil
 }
 
-func getGeoIP(client *resty.Client, ip string) (*GeoIPResponse, error) {
+func getGeoIP(client *resty.Client, ip, key string) (*GeoIPResponse, error) {
 	geoIP := new(GeoIPResponse)
-	url := fmt.Sprintf(freeGeoIPURLFormat, ip)
+	url := fmt.Sprintf(ipBaseUrl, ip, key)
 	if err := utils.DoJSONRequest(client, url, geoIP); err != nil {
 		return nil, fmt.Errorf("error getting geoip: %w", err)
 	}
