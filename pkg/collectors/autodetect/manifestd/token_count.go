@@ -30,8 +30,7 @@ func NewTokenCountCollector(client *client.GRPCClient) *TokenCountCollector {
 	var initialError error
 	if client == nil {
 		initialError = status.Error(codes.Internal, "gRPC client is nil")
-	}
-	if client != nil && client.Conn == nil {
+	} else if client.Conn == nil {
 		initialError = status.Error(codes.Internal, "gRPC client connection is nil")
 	}
 

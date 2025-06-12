@@ -35,17 +35,19 @@ type ExcludedSupplyCollector struct {
 	initialError       error
 }
 
-func NewExcludedSupplyCollector(c *client.GRPCClient, endpoint, denom string) *ExcludedSupplyCollector {
-	var err error
-	if c == nil || c.Conn == nil {
-		err = status.Error(codes.Internal, "gRPC client or connection is nil")
+func NewExcludedSupplyCollector(client *client.GRPCClient, endpoint, denom string) *ExcludedSupplyCollector {
+	var initialError error
+	if client == nil {
+		initialError = status.Error(codes.Internal, "gRPC client is nil")
+	} else if client.Conn == nil {
+		initialError = status.Error(codes.Internal, "gRPC client connection is nil")
 	}
 
 	return &ExcludedSupplyCollector{
-		grpcClient:    c,
+		grpcClient:    client,
 		addrsEndpoint: endpoint,
 		restyClient:   resty.New().SetHeader("Accept", "application/json").SetTimeout(pkg.ClientTimeout).SetRetryCount(pkg.ClientRetry),
-		initialError:  err,
+		initialError:  initialError,
 		denom:         denom,
 		excludedSupplyDesc: prometheus.NewDesc(
 			prometheus.BuildFQName("manifest", "tokenomics", "excluded_supply"),
@@ -83,7 +85,7 @@ func (c *ExcludedSupplyCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 
 	const rpcTimeout = 2 * time.Second
-	eg, egCtx := errgroup.WithContext(context.Background())
+	eg, egCtx := errgroup.WithContext(c.grpcClient.Ctx)
 	results := make(chan *big.Int, len(addrs))
 
 	bankClient := bankv1beta1.NewQueryClient(c.grpcClient.Conn)
