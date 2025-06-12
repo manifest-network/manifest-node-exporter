@@ -7,7 +7,7 @@ GO_MOD_CACHE_KEY: &go_mod_cache_key 'go-mod-1'
 orbs:
   go: circleci/go@3.0.2
   codecov: codecov/codecov@5.3.0
-  docker: circleci/docker@2.8.2
+#  docker: circleci/docker@2.8.2
 
 jobs:
   build:
@@ -83,15 +83,15 @@ workflows:
     jobs:
       - build
       - security
-  docker:
-    jobs:
-      - docker:
-          context:
-            - DOCKER_CREDS
-          filters:
-            branches:
-              only:
-                - main
+#  docker:
+#    jobs:
+#      - docker:
+#          context:
+#            - DOCKER_CREDS
+#          filters:
+#            branches:
+#              only:
+#                - main
   release:
     jobs:
       - release:
