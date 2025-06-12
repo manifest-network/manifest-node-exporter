@@ -1,13 +1,13 @@
 version: 2.1
 
-GO_VERSION: &go_version '1.24.2'
+GO_VERSION: &go_version '1.24.4'
 GORELEASER_VERSION: &goreleaser_version 'v2.9.0'
 GO_MOD_CACHE_KEY: &go_mod_cache_key 'go-mod-1'
 
 orbs:
   go: circleci/go@3.0.2
   codecov: codecov/codecov@5.3.0
-  docker: circleci/docker@2.8.2
+#  docker: circleci/docker@2.8.2
 
 jobs:
   build:
@@ -38,23 +38,23 @@ jobs:
       - store_artifacts:
           path: /tmp/artifacts
 
-  docker:
-    executor: docker/docker
-    steps:
-      - setup_remote_docker
-      - checkout
-      - docker/check
-      - docker/build:
-          image: lifted/manifest-node-exporter
-          tag: "latest,${CIRCLE_SHA1}"
-      - docker/push:
-          digest-path: /tmp/digest.txt
-          image: lifted/manifest-node-exporter
-          tag: "latest,${CIRCLE_SHA1}"
-      - run:
-          command: |
-            echo "Digest is: $(</tmp/digest.txt)"
-
+#  docker:
+#    executor: docker/docker
+#    steps:
+#      - setup_remote_docker
+#      - checkout
+#      - docker/check
+#      - docker/build:
+#          image: lifted/manifest-node-exporter
+#          tag: "latest,${CIRCLE_SHA1}"
+#      - docker/push:
+#          digest-path: /tmp/digest.txt
+#          image: lifted/manifest-node-exporter
+#          tag: "latest,${CIRCLE_SHA1}"
+#      - run:
+#          command: |
+#            echo "Digest is: $(</tmp/digest.txt)"
+#
   security:
     executor:
       name: go/default
@@ -83,15 +83,15 @@ workflows:
     jobs:
       - build
       - security
-  docker:
-    jobs:
-      - docker:
-          context:
-            - DOCKER_CREDS
-          filters:
-            branches:
-              only:
-                - main
+#  docker:
+#    jobs:
+#      - docker:
+#          context:
+#            - DOCKER_CREDS
+#          filters:
+#            branches:
+#              only:
+#                - main
   release:
     jobs:
       - release:
