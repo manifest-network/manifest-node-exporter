@@ -3,8 +3,11 @@ package autodetect
 import (
 	"fmt"
 	"log/slog"
+	"net"
+	"slices"
 
-	"github.com/shirou/gopsutil/v4/net"
+	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
+	gopnet "github.com/shirou/gopsutil/v4/net"
 	"github.com/shirou/gopsutil/v4/process"
 )
 
@@ -42,7 +45,7 @@ func IsProcessRunning(processName string) (bool, int32, error) {
 func GetListeningPorts(pid int32) ([]PortInfo, error) {
 	// Get all network connections (TCP only for listening ports)
 	// Use "tcp" to get both tcp4 and tcp6
-	connections, err := net.ConnectionsPid("tcp", pid)
+	connections, err := gopnet.ConnectionsPid("tcp", pid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get connections for pid %d: %w", pid, err)
 	}
@@ -67,4 +70,61 @@ func GetListeningPorts(pid int32) ([]PortInfo, error) {
 	}
 
 	return listeningPorts, nil
+}
+
+func DetectProcessWithGrpc(processName string, defaultPort uint32) (*ProcessInfo, error) {
+	ok, pid, err := IsProcessRunning(processName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if %s is running: %w", processName, err)
+	}
+	if !ok {
+		slog.Info("Process not found", "name", processName)
+		return nil, nil
+	}
+
+	ports, err := GetListeningPorts(pid)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get listening ports for process %d: %w", pid, err)
+	}
+
+	if len(ports) == 0 {
+		slog.Warn("Process found but no listening ports detected", "name", processName, "pid", pid)
+		return nil, fmt.Errorf("%s process found (PID %d) but has no listening ports", processName, pid)
+	}
+
+	defaultPortIndex := slices.IndexFunc(ports, func(port PortInfo) bool {
+		return port.Port == defaultPort
+	})
+	if defaultPortIndex != -1 {
+		slog.Debug("Process listening on default port", "name", processName, "pid", pid, "port", defaultPort)
+		defaultPortInfo := ports[defaultPortIndex]
+		target := net.JoinHostPort(defaultPortInfo.Address, fmt.Sprint(defaultPortInfo.Port))
+		if utils.IsGrpcPort(target) {
+			slog.Debug("gRPC connection successful", "target", target)
+			return &ProcessInfo{
+				Pid:     pid,
+				Address: defaultPortInfo.Address,
+				Port:    defaultPortInfo.Port,
+			}, nil
+		} else {
+			slog.Warn("gRPC connection failed on default port", "target", target)
+		}
+	}
+
+	slog.Debug("Default port not found, checking other ports", "name", processName, "pid", pid)
+	for _, port := range ports {
+		target := net.JoinHostPort(port.Address, fmt.Sprint(port.Port))
+		if utils.IsGrpcPort(target) {
+			slog.Debug("gRPC connection successful", "target", target)
+			return &ProcessInfo{
+				Pid:     pid,
+				Address: port.Address,
+				Port:    port.Port,
+			}, nil
+		} else {
+			slog.Warn("gRPC connection failed", "target", target)
+		}
+	}
+
+	return nil, fmt.Errorf("no gRPC connection found for %s process (PID %d)", processName, pid)
 }

@@ -1,4 +1,4 @@
-package manifestd
+package ghostcloudd
 
 import (
 	"context"
@@ -12,32 +12,32 @@ import (
 	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect"
 )
 
-const processName = "manifestd"
-const defaultPort = 9090 // Default gRPC port for manifestd
+const processName = "ghostcloudd"
+const defaultPort = 9090 // Default gRPC port for ghostcloudd
 
-// Ensure manifestdMonitor implements ProcessMonitor
-var _ autodetect.ProcessMonitor = (*manifestdMonitor)(nil)
+// Ensure ghostcloudd implements ProcessMonitor
+var _ autodetect.ProcessMonitor = (*ghostclouddMonitor)(nil)
 
-type manifestdMonitor struct{}
+type ghostclouddMonitor struct{}
 
 func init() {
-	autodetect.RegisterMonitor(&manifestdMonitor{})
+	autodetect.RegisterMonitor(&ghostclouddMonitor{})
 }
 
-// Name returns the name of the process being monitored by manifestd Monitor.
-func (m *manifestdMonitor) Name() string {
+// Name returns the name of the process being monitored by ghostcloudd Monitor.
+func (m *ghostclouddMonitor) Name() string {
 	return processName
 }
 
 // Detect checks if the monitored process is running, validates its gRPC readiness, and retrieves process information.
-func (m *manifestdMonitor) Detect() (*autodetect.ProcessInfo, error) {
+func (m *ghostclouddMonitor) Detect() (*autodetect.ProcessInfo, error) {
 	return autodetect.DetectProcessWithGrpc(processName, defaultPort)
 }
 
-// CollectCollectors gathers all registered Prometheus collectors for the manifestd process using a provided gRPC client.
+// CollectCollectors gathers all registered Prometheus collectors for the ghostcloudd process using a provided gRPC client.
 // It requires valid process information to establish a gRPC connection.
 // Returns a slice of Prometheus collectors or an error if the process information is nil or the gRPC client cannot be created.
-func (m *manifestdMonitor) CollectCollectors(ctx context.Context, processInfo *autodetect.ProcessInfo) ([]prometheus.Collector, error) {
+func (m *ghostclouddMonitor) CollectCollectors(ctx context.Context, processInfo *autodetect.ProcessInfo) ([]prometheus.Collector, error) {
 	if processInfo == nil {
 		return nil, fmt.Errorf("processInfo is nil")
 	}

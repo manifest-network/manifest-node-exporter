@@ -5,12 +5,12 @@ import (
 	"log/slog"
 	"time"
 
-	nodev1beta1 "cosmossdk.io/api/cosmos/base/node/v1beta1"
+	tmv1beta1 "cosmossdk.io/api/cosmos/base/tendermint/v1beta1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func GetNodeStatus(target string) (*nodev1beta1.StatusResponse, error) {
+func GetNodeStatus(target string) (*tmv1beta1.GetNodeInfoResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -25,9 +25,9 @@ func GetNodeStatus(target string) (*nodev1beta1.StatusResponse, error) {
 	}
 	defer conn.Close()
 
-	client := nodev1beta1.NewServiceClient(conn)
+	client := tmv1beta1.NewServiceClient(conn)
 
-	resp, err := client.Status(ctx, &nodev1beta1.StatusRequest{})
+	resp, err := client.GetNodeInfo(ctx, &tmv1beta1.GetNodeInfoRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +40,17 @@ func IsGrpcPort(target string) bool {
 	if err != nil || resp == nil {
 		return false
 	}
-	slog.Debug("gRPC port is ready and responding", "target", target, "status", resp)
+	if resp.ApplicationVersion == nil {
+		slog.Warn("gRPC port is not responding as expected", "target", target, "error", "ApplicationVersion is nil")
+		return false
+	}
+
+	cosmosSdkVersion := resp.ApplicationVersion.CosmosSdkVersion
+	if cosmosSdkVersion == "" {
+		slog.Warn("gRPC port is not responding as expected", "target", target, "error", "Cosmos SDK version is empty")
+		return false
+	}
+
+	slog.Debug("gRPC port is ready and responding", "target", target, "status", resp, "cosmosSdkVersion", cosmosSdkVersion)
 	return true
 }
