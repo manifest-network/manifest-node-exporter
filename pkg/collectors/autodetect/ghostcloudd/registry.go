@@ -6,8 +6,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
-	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
+	"github.com/manifest-network/manifest-node-exporter/pkg/client"
+	"github.com/manifest-network/manifest-node-exporter/pkg/utils"
 )
 
 // GhostclouddCollectorFactory is a function type that creates a prometheus.Collector.

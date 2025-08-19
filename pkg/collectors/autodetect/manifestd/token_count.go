@@ -12,8 +12,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
+	"github.com/manifest-network/manifest-node-exporter/pkg/client"
+	"github.com/manifest-network/manifest-node-exporter/pkg/collectors"
 )
 
 // TokenCountCollector collects the total number of denominations from the Cosmos SDK bank module via gRPC.

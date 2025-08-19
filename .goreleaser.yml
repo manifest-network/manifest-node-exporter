@@ -29,7 +29,7 @@ builds:
       - manifest_node_exporter
     ldflags:
       - -s -w
-      - -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-node-exporter.Version={{ .Version }}
+      - -X github.com/manifest-network/manifest-node-exporter/cmd/manifest-node-exporter.Version={{ .Version }}
 
   - id: manifest-excluded-supply-exporter
     binary: manifest-excluded-supply-exporter
@@ -52,7 +52,7 @@ builds:
       - manifest_excluded_supply_exporter
     ldflags:
       - -s -w
-      - -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-excluded-supply-exporter.Version={{ .Version }}
+      - -X github.com/manifest-network/manifest-node-exporter/cmd/manifest-excluded-supply-exporter.Version={{ .Version }}
 
 archives:
   - formats: tar.gz

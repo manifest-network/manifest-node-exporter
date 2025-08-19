@@ -10,7 +10,7 @@ Two exporters are available:
 
 ## Installation
 
-Download the latest release from the [releases page](https://github.com/liftedinit/manifest-node-exporter/releases)
+Download the latest release from the [releases page](https://github.com/manifest-network/manifest-node-exporter/releases)
 
 ## Quick Start - Manifest Node Exporter
 

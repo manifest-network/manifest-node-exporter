@@ -13,8 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"resty.dev/v3"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
+	"github.com/manifest-network/manifest-node-exporter/pkg"
+	"github.com/manifest-network/manifest-node-exporter/pkg/utils"
 )
 
 type GeoIPCollector struct {

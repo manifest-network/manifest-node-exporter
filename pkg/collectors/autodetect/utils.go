@@ -6,7 +6,7 @@ import (
 	"net"
 	"slices"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
+	"github.com/manifest-network/manifest-node-exporter/pkg/utils"
 	gopnet "github.com/shirou/gopsutil/v4/net"
 	"github.com/shirou/gopsutil/v4/process"
 )
