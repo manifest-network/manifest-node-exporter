@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/client"
+	"github.com/manifest-network/manifest-node-exporter/pkg/client"
 )
 
 func ReportUpMetric(ch chan<- prometheus.Metric, desc *prometheus.Desc, value float64) {

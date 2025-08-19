@@ -3,7 +3,7 @@ package manifest_excluded_supply_exporter
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/liftedinit/manifest-node-exporter/cmd"
+	"github.com/manifest-network/manifest-node-exporter/cmd"
 )
 
 var Version = "dev"

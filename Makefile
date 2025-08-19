@@ -1,7 +1,7 @@
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_FLAGS := -ldflags "\
-  -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-node-exporter.Version=$(VERSION) \
-  -X github.com/liftedinit/manifest-node-exporter/cmd/manifest-excluded-supply-exporter.Version=$(VERSION)" \
+  -X github.com/manifest-network/manifest-node-exporter/cmd/manifest-node-exporter.Version=$(VERSION) \
+  -X github.com/manifest-network/manifest-node-exporter/cmd/manifest-excluded-supply-exporter.Version=$(VERSION)" \
   -tags manifest
 
 #### Build ####
@@ -23,7 +23,7 @@ test: ## Run tests
 COV_ROOT="/tmp/manifest-node-exporter-coverage"
 COV_UNIT="${COV_ROOT}/unit"
 COV_E2E="${COV_ROOT}/e2e"
-COV_PKG="github.com/liftedinit/manifest-node-exporter/..."
+COV_PKG="github.com/manifest-network/manifest-node-exporter/..."
 
 coverage: ## Run tests with coverage
 	@echo "--> Creating GOCOVERDIR"
@@ -69,7 +69,7 @@ goimports_version=v0.32.0
 format: ## Run formatter (goimports)
 	@echo "--> Running goimports"
 	@go install golang.org/x/tools/cmd/goimports@$(goimports_version)
-	@find . -name '*.go' -exec goimports -w -local github.com/liftedinit/manifest-node-exporter {} \;
+	@find . -name '*.go' -exec goimports -w -local github.com/manifest-network/manifest-node-exporter {} \;
 
 .PHONY: format
 

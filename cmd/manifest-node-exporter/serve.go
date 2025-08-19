@@ -14,11 +14,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors"
-	"github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect"
-	_ "github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect/ghostcloudd" // RegisterMonitor the ghostcloudd monitor (side-effect)
-	_ "github.com/liftedinit/manifest-node-exporter/pkg/collectors/autodetect/manifestd"   // RegisterMonitor the manifestd monitor (side-effect)
+	"github.com/manifest-network/manifest-node-exporter/pkg"
+	"github.com/manifest-network/manifest-node-exporter/pkg/collectors"
+	"github.com/manifest-network/manifest-node-exporter/pkg/collectors/autodetect"
+	_ "github.com/manifest-network/manifest-node-exporter/pkg/collectors/autodetect/ghostcloudd" // RegisterMonitor the ghostcloudd monitor (side-effect)
+	_ "github.com/manifest-network/manifest-node-exporter/pkg/collectors/autodetect/manifestd"   // RegisterMonitor the manifestd monitor (side-effect)
 )
 
 // serveCmd represents the serve command

@@ -7,7 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/liftedinit/manifest-node-exporter/pkg/utils"
+	"github.com/manifest-network/manifest-node-exporter/pkg/utils"
 )
 
 // ProcessInfo holds information about a detected process.
