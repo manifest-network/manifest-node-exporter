@@ -1,6 +1,11 @@
-# Manifest Node Exporter
+<h1 align="center">manifest-node-exporter</h1>
 
-[![CircleCI](https://dl.circleci.com/status-badge/img/gh/liftedinit/manifest-node-exporter/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/liftedinit/manifest-node-exporter/tree/main)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/cosmos/chain-registry/00df6ff89abd382f9efe3d37306c353e2bd8d55c/manifest/images/manifest.png" alt="Manifest Network" width="100"/>
+</p>
+
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/manifest-network/manifest-node-exporter/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/manifest-network/manifest-node-exporter)](https://goreportcard.com/report/github.com/manifest-network/manifest-node-exporter)
 
 Prometheus exporters for collecting metrics from Manifest blockchain nodes. The exporters are designed to automatically detect which services are running on the node and collect relevant metrics.
 
