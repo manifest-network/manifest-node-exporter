@@ -227,7 +227,6 @@ func (c *FeesCollector) Collect(ch chan<- prometheus.Metric) {
 		scrapeErrs uint64
 	)
 
-	//results := make(chan math.Int, len(validatorsResp.Validators))
 	for _, val := range validatorsResp.Validators {
 		val := val
 		eg.Go(func() error {
@@ -278,7 +277,9 @@ func (c *FeesCollector) Collect(ch chan<- prometheus.Metric) {
 		})
 	}
 
-	_ = eg.Wait()
+	if err := eg.Wait(); err != nil {
+		slog.Warn("error waiting for validator goroutines", "error", err)
+	}
 
 	if n := atomic.LoadUint64(&scrapeErrs); n > 0 {
 		atomic.AddUint64(&c.validatorErrsTotal, n)
