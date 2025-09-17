@@ -277,9 +277,7 @@ func (c *FeesCollector) Collect(ch chan<- prometheus.Metric) {
 		})
 	}
 
-	if err := eg.Wait(); err != nil {
-		slog.Warn("error waiting for validator goroutines", "error", err)
-	}
+	_ = eg.Wait()
 
 	if n := atomic.LoadUint64(&scrapeErrs); n > 0 {
 		atomic.AddUint64(&c.validatorErrsTotal, n)
