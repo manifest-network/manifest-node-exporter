@@ -217,6 +217,12 @@ func (c *FeesCollector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
+	if len(validatorsResp.Validators) == 0 {
+		slog.Warn("Validators response has no validators")
+		c.emitFromDisk(ch, 1)
+		return
+	}
+
 	distributionQueryClient := distributionv1beta1.NewQueryClient(c.grpcClient.Conn)
 	const rpcTimeout = 2 * time.Second
 
@@ -279,10 +285,12 @@ func (c *FeesCollector) Collect(ch chan<- prometheus.Metric) {
 
 	_ = eg.Wait()
 
+	// Accumulate any scrape errors into the total counter
 	if n := atomic.LoadUint64(&scrapeErrs); n > 0 {
 		atomic.AddUint64(&c.validatorErrsTotal, n)
 	}
 
+	// Check if any updates differ from the cache
 	var changed bool
 	c.cacheMu.Lock()
 	for addr, amt := range updates {
