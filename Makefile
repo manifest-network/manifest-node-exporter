@@ -74,7 +74,7 @@ format: ## Run formatter (goimports)
 .PHONY: format
 
 #### GOVULNCHECK ####
-govulncheck_version=v1.1.3
+govulncheck_version=v1.3.0
 
 govulncheck: ## Run govulncheck
 	@echo "--> Running govulncheck"
