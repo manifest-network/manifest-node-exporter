@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"time"
 
+	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
 	distributionv1beta1 "cosmossdk.io/api/cosmos/distribution/v1beta1"
 	stakingv1beta1 "cosmossdk.io/api/cosmos/staking/v1beta1"
 	"cosmossdk.io/math"
@@ -53,6 +54,28 @@ func NewFeesCollector(client *client.GRPCClient, denom string) *FeesCollector {
 			prometheus.Labels{"source": "grpc", "queries": "Validators, ValidatorOutstandingRewards"},
 		),
 	}
+}
+
+// extractDenomRewards sums the `denom` component of a validator's outstanding
+// rewards. Outstanding rewards are DecCoins and may hold multiple denoms (e.g.
+// umfx + PWR/upwr after billing v2), so we pick out only the requested denom and
+// ignore the rest. Validators with no matching reward contribute zero.
+func extractDenomRewards(rewards []*basev1beta1.DecCoin, denom, validatorAddr string) (math.Int, error) {
+	for _, coin := range rewards {
+		if coin.Denom != denom {
+			continue
+		}
+		// Convert the amount to a big.Int.
+		amount, ok := new(big.Int).SetString(coin.Amount, 10)
+		if !ok {
+			slog.Error("Failed to parse coin amount", "validator", validatorAddr, "amount", coin.Amount)
+			return math.ZeroInt(), status.Error(codes.Internal, "invalid coin amount for validator "+validatorAddr+": "+coin.Amount)
+		}
+		// Build a LegacyDec using LegacyPrecision and keep only the integer part.
+		// DecCoins hold at most one entry per denom, so we can return immediately.
+		return math.LegacyNewDecFromBigIntWithPrec(amount, math.LegacyPrecision).TruncateInt(), nil
+	}
+	return math.ZeroInt(), nil
 }
 
 func (c *FeesCollector) Describe(ch chan<- *prometheus.Desc) {
@@ -102,29 +125,15 @@ func (c *FeesCollector) Collect(ch chan<- prometheus.Metric) {
 				slog.Error("ValidatorOutstandingRewards response is nil or empty", "validator", val.OperatorAddress)
 				return status.Error(codes.Internal, "ValidatorOutstandingRewards response is nil or empty")
 			}
-			if len(feesResp.Rewards.Rewards) != 1 {
-				slog.Warn("ValidatorOutstandingRewards response has no rewards or too many rewards", "validator", val.OperatorAddress)
-				return nil
-			}
-			denom := feesResp.Rewards.Rewards[0].Denom
-			if denom != c.denom {
-				slog.Warn("ValidatorOutstandingRewards response has different denom", "validator", val.OperatorAddress, "expected", c.denom, "got", denom)
-				return status.Error(codes.InvalidArgument, "denom mismatch for validator "+val.OperatorAddress+": expected "+c.denom+", got "+denom)
-			}
 
-			// Convert the amount to a big.Int
-			amount, ok := new(big.Int).SetString(feesResp.Rewards.Rewards[0].Amount, 10)
-			if !ok {
-				slog.Error("Failed to parse coin amount", "validator", val.OperatorAddress, "amount", feesResp.Rewards.Rewards[0].Amount)
-				return status.Error(codes.Internal, "invalid coin amount for validator "+val.OperatorAddress+": "+feesResp.Rewards.Rewards[0].Amount)
+			// Outstanding rewards may hold multiple denoms (e.g. umfx + PWR/upwr
+			// after billing v2); sum only the c.denom component. Validators with
+			// no matching reward contribute zero.
+			amount, err := extractDenomRewards(feesResp.Rewards.Rewards, c.denom, val.OperatorAddress)
+			if err != nil {
+				return err
 			}
-
-			// And create a LegacyDec from it, using the LegacyPrecision
-			legacyAmount := math.LegacyNewDecFromBigIntWithPrec(amount, math.LegacyPrecision)
-
-			// And only keep the integer part
-			truncatedAmount := legacyAmount.TruncateInt()
-			results <- truncatedAmount
+			results <- amount
 
 			return nil
 		})
